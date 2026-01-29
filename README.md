@@ -7,3 +7,5 @@ The project demonstrates a method for simulating expert evaluator panels using e
 **Content forthcoming.**
 
 Code, prompts, and documentation will be added following the conference presentation.
+
+https://youtu.be/yYaZP-fsjMo 
