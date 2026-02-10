@@ -2,6 +2,21 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Project Status
+
+**Pre-implementation.** Only `SPEC.md` and implementation plans exist — no application code yet. Read the relevant phase plan in `docs/plan/` before starting any implementation work.
+
+## Key References
+
+- `SPEC.md` — Complete specification (source of truth). Key sections:
+  - §4.4-4.5: Zod schemas (JudgeOutput, ConsensusOutput) — copy exactly
+  - §4.6: Prompt templates (judge system/user, consensus system/user) — copy exactly
+  - §5.1-5.4: Backend implementation with code samples
+  - §7.1-7.5: Frontend implementation with code samples
+  - §9.1-9.4: Project layout, path aliases, tsup config, Dockerfile
+- `docs/plan/00-PLAN.md` — Phase overview with dependency graph and team parallelism
+- `docs/plan/01-scaffolding.md` through `docs/plan/08-polish-deploy.md` — Detailed sub-issues per phase
+
 ## Project Overview
 
 Multi-Judge LLM Grading Demo — a single-container Hugging Face Space (Docker SDK, port 7860) that runs a calibrated LLM-as-a-judge panel. Three AI judges (each calibrated with a different human rater's few-shot examples) evaluate a document against a shared rubric, then a consensus arbiter reconciles their scores. The full specification lives in `SPEC.md`.
