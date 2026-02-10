@@ -22,6 +22,5 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["**/*.ts", "**/*.tsx"],
-  "references": [{ "path": "./" }]
+  "include": ["**/*.ts", "**/*.tsx"]
 }
