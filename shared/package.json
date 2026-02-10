@@ -4,11 +4,6 @@
   "description": "Shared types and Zod schemas for the grading demo",
   "private": true,
   "type": "module",
-  "scripts": {
-    "build": "echo 'No build needed for shared types'",
-    "test": "vitest run",
-    "test:watch": "vitest"
-  },
   "exports": {
     ".": {
       "import": "./types.ts",
@@ -27,8 +22,6 @@
     "zod": "^3.23.0"
   },
   "devDependencies": {
-    "typescript": "^5.6.0",
-    "vitest": "^1.0.0",
-    "@vitest/ui": "^1.0.0"
+    "typescript": "^5.6.0"
   }
 }
