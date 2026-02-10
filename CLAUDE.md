@@ -40,15 +40,15 @@ Multi-Judge LLM Grading Demo — a single-container Hugging Face Space (Docker S
 npm install --workspaces
 
 # Development
-npm run dev --workspace=server     # Express dev server (tsx watch)
-npm run dev --workspace=client     # Vite dev server
+npm run dev --workspace=@grading/server  # Express dev server (tsx watch)
+npm run dev --workspace=@grading/client  # Vite dev server
 
 # Testing
 npm test --workspace=@shared/types    # Run tests (vitest configured in each package)
 
 # Production build
-npm run build --workspace=client   # Vite build → client/dist
-npm run build --workspace=server   # tsup build → server/dist (bundles @shared)
+npm run build --workspace=@grading/client   # Vite build → client/dist
+npm run build --workspace=@grading/server   # tsup build → server/dist (bundles @shared)
 
 # Docker
 docker build -t grading-demo .
@@ -148,6 +148,14 @@ Each tier uses a different API mechanism (not prompt changes):
 ## TypeScript Configuration
 
 - **tsconfig.json "references"**: Remove `"references": [{ "path": "./" }]` from packages with `"noEmit": true` (causes TS6305/TS6306 errors in strict mode)
+- **server/tsconfig.json path resolution**: Use `rootDirs: ["src", "../shared"]` (not `rootDir`) to avoid TS6059 when including external packages. Also exclude shared tests:
+  ```json
+  "rootDirs": ["src", "../shared"],
+  "include": ["src/**/*", "../shared/**/*.ts", "!../shared/**/*.test.ts"],
+  "exclude": ["node_modules", "dist", "../shared/__tests__"]
+  ```
+- **client/tsconfig.json & tsconfig.app.json**: Remove all `"references"` fields to avoid composite project conflicts with `noEmit: true`
+- **Unused parameters in strict mode**: When `noUnusedParameters: true`, prefix unused params with `_` (e.g., `_req`, `_res`) to avoid TS6133 errors
 
 ## Evaluation Design
 

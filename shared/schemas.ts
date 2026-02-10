@@ -16,8 +16,7 @@ export const EvidenceQuote = z.object({
  * CriterionScore schema - Score for a single rubric criterion
  */
 export const CriterionScore = z.object({
-  name: z.enum(["Clarity", "Reasoning", "Completeness"])
-    .describe("Name of the criterion"),
+  name: z.enum(["Clarity", "Reasoning", "Completeness"]),
   score: z.number().int().min(1).max(5)
     .describe("Score from 1 (poor) to 5 (excellent)"),
   notes: z.string()
@@ -56,14 +55,10 @@ export const ConsensusOutput = z.object({
     .describe("3-5 sentence synthesis using judge rationales and evidence, NOT new document analysis"),
   agreement: z.object({
     scores: z.object({
-      rater_a: z.number().int().min(1).max(5)
-        .describe("Judge A's overall score"),
-      rater_b: z.number().int().min(1).max(5)
-        .describe("Judge B's overall score"),
-      rater_c: z.number().int().min(1).max(5)
-        .describe("Judge C's overall score"),
-    })
-      .describe("Individual judge scores"),
+      rater_a: z.number().int().min(1).max(5),
+      rater_b: z.number().int().min(1).max(5),
+      rater_c: z.number().int().min(1).max(5),
+    }),
     mean_score: z.number().min(1).max(5)
       .describe("Arithmetic mean of judge scores, rounded to 1 decimal"),
     median_score: z.number().int().min(1).max(5)
@@ -74,8 +69,7 @@ export const ConsensusOutput = z.object({
       .describe("strong = spread 0-1, moderate = spread 2, weak = spread 3-4"),
     disagreement_analysis: z.string()
       .describe("Why judges differed, referencing their calibration perspectives and specific evidence they cited"),
-  })
-    .describe("Analysis of judge agreement and disagreement"),
+  }),
   criteria: z.array(CriterionScore).length(3)
     .describe("Final reconciled scores per criterion"),
   improvements: z.array(z.string()).min(1).max(5)
