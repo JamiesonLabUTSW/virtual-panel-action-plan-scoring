@@ -4,13 +4,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Status
 
-**Pre-implementation.** Only `SPEC.md` and implementation plans exist — no application code yet. Read the relevant phase plan in `docs/plan/` before starting any implementation work.
+**Phase 1 in progress.** Implementation follows 8 phases (scaffolding → features → deploy). Before starting work, read:
+- Issue epic (e.g., Phase 1: Project Scaffolding)
+- Sub-issue with specific requirements (e.g., #9: Initialize Root Monorepo)
+- Relevant phase plan in `docs/plan/` (e.g., `01-scaffolding.md`)
 
 ## Key References
 
 - `SPEC.md` — Complete specification (source of truth). Key sections:
-  - §4.4-4.5: Zod schemas (JudgeOutput, ConsensusOutput) — copy exactly
-  - §4.6: Prompt templates (judge system/user, consensus system/user) — copy exactly
+  - §4.4-4.5: Zod schemas (JudgeOutput, ConsensusOutput) — **copy exactly, do not refactor or rename**
+  - §4.6: Prompt templates (judge system/user, consensus system/user) — **copy exactly**
   - §5.1-5.4: Backend implementation with code samples
   - §7.1-7.5: Frontend implementation with code samples
   - §9.1-9.4: Project layout, path aliases, tsup config, Dockerfile
@@ -32,21 +35,27 @@ Multi-Judge LLM Grading Demo — a single-container Hugging Face Space (Docker S
 ## Build & Run Commands
 
 ```bash
+# First time: all workspace package.json files must exist before installing
 # Install dependencies (monorepo: shared/, server/, client/)
 npm install --workspaces
 
 # Development
-npm run dev --workspace=server     # Express dev server (tsx watch)
-npm run dev --workspace=client     # Vite dev server
+npm run dev --workspace=@grading/server  # Express dev server (tsx watch)
+npm run dev --workspace=@grading/client  # Vite dev server
+
+# Testing
+npm test --workspace=@shared/types    # Run tests (vitest configured in each package)
 
 # Production build
-npm run build --workspace=client   # Vite build → client/dist
-npm run build --workspace=server   # tsup build → server/dist (bundles @shared)
+npm run build --workspace=@grading/client   # Vite build → client/dist
+npm run build --workspace=@grading/server   # tsup build → server/dist (bundles @shared)
 
 # Docker
 docker build -t grading-demo .
 docker run -p 7860:7860 --env-file .env grading-demo
 ```
+
+**Test packages** (e.g., shared/): Include `"test": "vitest run"` and `"test:watch": "vitest"` scripts in package.json; place tests in `__tests__/` directory.
 
 ## Architecture
 
@@ -97,6 +106,9 @@ client/src/
 ```
 
 **Path aliases:** Both server and client use `@shared/*` → `../shared/*` (tsup bundles it, Vite resolves it).
+- **server/tsconfig.json:** `paths: { "@shared/*": ["../shared/*"] }` with `rootDirs: ["src", "../shared"]`
+- **server/tsup.config.ts:** `noExternal: ["@shared"]` to inline shared code into bundle (required for Docker)
+- **client/vite.config.ts:** `alias: { "@shared": path.resolve(__dirname, "../shared") }`
 
 ## Critical Model Constraints (gpt-5.1-codex-mini)
 
@@ -121,6 +133,8 @@ Each tier uses a different API mechanism (not prompt changes):
 2. `withStructuredOutput({ method: "functionCalling" })` → tool/function calling
 3. `response_format: { type: "json_object" }` + runtime Zod `parse()`
 
+**Zod schema pattern:** Every field must include `.describe()` for model documentation. Never use `z.optional()`; use `z.nullable()` if a field can be null. Field order in schema matches SPEC exactly (becomes the documentation contract).
+
 ## Environment Variables
 
 | Variable | Required | Default | Purpose |
@@ -130,6 +144,18 @@ Each tier uses a different API mechanism (not prompt changes):
 | `AZURE_OPENAI_DEPLOYMENT` | Yes | — | Deployment name |
 | `PORT` | No | 7860 | Server port |
 | `MAX_DOC_CHARS` | No | 20000 | Document character limit |
+
+## TypeScript Configuration
+
+- **tsconfig.json "references"**: Remove `"references": [{ "path": "./" }]` from packages with `"noEmit": true` (causes TS6305/TS6306 errors in strict mode)
+- **server/tsconfig.json path resolution**: Use `rootDirs: ["src", "../shared"]` (not `rootDir`) to avoid TS6059 when including external packages. Also exclude shared tests:
+  ```json
+  "rootDirs": ["src", "../shared"],
+  "include": ["src/**/*", "../shared/**/*.ts", "!../shared/**/*.test.ts"],
+  "exclude": ["node_modules", "dist", "../shared/__tests__"]
+  ```
+- **client/tsconfig.json & tsconfig.app.json**: Remove all `"references"` fields to avoid composite project conflicts with `noEmit: true`
+- **Unused parameters in strict mode**: When `noUnusedParameters: true`, prefix unused params with `_` (e.g., `_req`, `_res`) to avoid TS6133 errors
 
 ## Evaluation Design
 
@@ -148,3 +174,11 @@ Consensus arbiter references judge rationales (not the document), outputs `agree
 - 2+ judge failures → throw error, require retry
 - Document text wrapped in `<document>` tags with injection defense in system prompt
 - Never log document content; log only per-run metrics (scores, latency, confidence)
+
+## Git & Tool Conventions
+
+- **glab mr create** uses `--target-branch` (not `--base` like GitHub CLI)
+- **Feature branch naming:** `feat/<issue>-<description>` (e.g., `feat/9-init-repo`)
+- **npm workspaces** require all workspace `package.json` files to exist before `npm install`
+- **npm workspace commands** use full package name (e.g., `npm test --workspace=@shared/types`, not `shared`)
+- **Node version:** Enforce via both `.nvmrc` (for nvm users) and `package.json` `engines` field
