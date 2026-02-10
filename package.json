@@ -1,0 +1,22 @@
+{
+  "name": "multi-judge-grading-demo",
+  "version": "0.0.0",
+  "description": "Calibrated LLM-as-a-judge panel on Hugging Face Spaces",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "shared",
+    "server",
+    "client"
+  ],
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "npm run dev --workspaces",
+    "build": "npm run build --workspaces",
+    "clean": "npm run clean --workspaces && rm -rf node_modules",
+    "verify-build": "npm run build && npm run verify-build:test",
+    "verify-build:test": "node scripts/verify-build.mjs"
+  }
+}
