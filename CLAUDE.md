@@ -140,6 +140,20 @@ This is a reasoning model with non-standard parameter support:
 - Use `max_output_tokens` (Responses API) or `max_completion_tokens` (Chat Completions API)
 - `reasoning_effort` defaults to `none`; set explicitly if needed
 - Use `useResponsesApi: true` in LangChain's `ChatOpenAI` config
+- In LangChain 1.2.7+: `maxTokens` parameter works correctly; older versions may not expose it in
+  types. Use whichever parameter works with the installed LangChain version.
+
+## Library Version Notes
+
+**LangChain version mismatch:** SPEC.md references structured output parameters (e.g.,
+`maxOutputTokens`) that may not exist in older LangChain versions (0.5.x). If implementation
+diverges from spec, check if `@langchain/openai` is outdated before assuming spec is wrong. Current
+versions (@langchain/openai 1.2.7+, @langchain/core 1.1.22+, openai 6.x) support all documented
+parameters.
+
+**Core dependency versions:** @langchain/openai, @langchain/core, openai SDK, and zod should be kept
+near latest. Major version upgrades of these packages typically have no breaking changes for this
+project; verify with `npm run type-check && npm run test --workspace=@grading/server`.
 
 ## Azure OpenAI v1 Configuration
 
@@ -339,6 +353,14 @@ related tests on staged files. Commits are blocked if any check fails.
 
 **Coverage thresholds:** 80% per workspace (lines, functions, branches, statements). Reports
 warnings but does NOT fail builds.
+
+**Testing library upgrades:** When upgrading @langchain/\*, openai, or zod to latest versions,
+follow this safe path:
+
+1. Update package.json versions and run `npm install --workspaces`
+2. Run `npm run type-check --workspace=@grading/server` to catch type errors
+3. Run `npm run test --workspace=@grading/server` to validate behavior
+4. If all pass, the upgrade is safe (this codebase has clean breaking-change tests)
 
 **Configuration patterns & gotchas:**
 
