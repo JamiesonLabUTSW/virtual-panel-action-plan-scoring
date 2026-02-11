@@ -7,6 +7,7 @@ import express, { type Request, type Response } from "express";
 import OpenAI from "openai";
 import { DummyDefaultAgent } from "./agents/dummy-default-agent";
 import { TestAgent } from "./agents/test-agent";
+import { exitIfInvalid, validateRequiredEnvVars } from "./config/env-validation";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -17,26 +18,17 @@ const MAX_DOC_CHARS = process.env.MAX_DOC_CHARS
   ? Number.parseInt(process.env.MAX_DOC_CHARS, 10)
   : 20000;
 
-// Validate required environment variables
-const requiredEnvVars = [
-  "AZURE_OPENAI_API_KEY",
-  "AZURE_OPENAI_RESOURCE",
-  "AZURE_OPENAI_DEPLOYMENT",
-];
+// Validate required environment variables (Issue #21)
+const envValidation = validateRequiredEnvVars();
+exitIfInvalid(envValidation);
 
-const missingVars = requiredEnvVars.filter((envVar) => !process.env[envVar]);
-
-if (missingVars.length > 0) {
-  console.error("❌ Missing required environment variables:");
-  for (const envVar of missingVars) {
-    console.error(`   - ${envVar}`);
-  }
-  process.exit(1);
-}
-
-const AZURE_OPENAI_API_KEY = process.env.AZURE_OPENAI_API_KEY;
-const AZURE_OPENAI_RESOURCE = process.env.AZURE_OPENAI_RESOURCE;
-const AZURE_OPENAI_DEPLOYMENT = process.env.AZURE_OPENAI_DEPLOYMENT;
+// After exitIfInvalid(), these values are guaranteed to be defined
+// biome-ignore lint/style/noNonNullAssertion: Safe after exitIfInvalid() validation
+const AZURE_OPENAI_API_KEY = envValidation.values.AZURE_OPENAI_API_KEY!;
+// biome-ignore lint/style/noNonNullAssertion: Safe after exitIfInvalid() validation
+const AZURE_OPENAI_RESOURCE = envValidation.values.AZURE_OPENAI_RESOURCE!;
+// biome-ignore lint/style/noNonNullAssertion: Safe after exitIfInvalid() validation
+const AZURE_OPENAI_DEPLOYMENT = envValidation.values.AZURE_OPENAI_DEPLOYMENT!;
 
 // Initialize Azure OpenAI client with v1 API
 const openaiClient = new OpenAI({
