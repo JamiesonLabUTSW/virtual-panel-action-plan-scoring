@@ -72,7 +72,7 @@ files and mounts the CopilotKit runtime at `/api/copilotkit`.
 │  ├── GET  / ................... React static build       │
 │  ├── POST /api/copilotkit ..... CopilotKit Runtime       │
 │  │   ├── Service Adapter: OpenAIAdapter (Azure v1 client)│
-│  │   ├── Action: "gradeDocument"                         │
+│  │   ├── Agent: "gradeDocument" (AbstractAgent)          │
 │  │   │   └── Orchestrator (LangChain.js)                 │
 │  │   │       ├── Judge chain (Rater A calibration)       │
 │  │   │       ├── Judge chain (Rater B calibration)       │
@@ -92,8 +92,8 @@ files and mounts the CopilotKit runtime at `/api/copilotkit`.
 (`@copilotkit/runtime`) that mounts as Express middleware. It handles all transport between backend
 and frontend via the AG-UI protocol — streaming state snapshots, messages, and tool call events over
 a **single HTTP endpoint** (GraphQL was removed in CopilotKit v1.50+). There is no need to implement
-custom streaming endpoints. The grading pipeline is registered as a CopilotKit **action** that the
-frontend triggers with explicit parameters.
+custom streaming endpoints. The grading pipeline is registered as a CopilotKit **agent** (custom
+`AbstractAgent` subclass) that the frontend triggers via `useCoAgent<GradingState>.run()`.
 
 **Single OpenAI client, one Azure v1 baseURL.** Both CopilotKit (for chat) and LangChain.js (for
 grading) share the same Azure OpenAI v1 configuration. The v1 API uses standard OpenAI SDK patterns
@@ -508,7 +508,9 @@ const serviceAdapter = new OpenAIAdapter({
 });
 
 const runtime = new CopilotRuntime({
-  actions: [gradeDocumentAction],
+  agents: {
+    gradeDocument: new GradeDocumentAgent(),
+  },
 });
 
 app.use("/api/copilotkit", gradingLimiter, (req, res, next) => {
@@ -539,44 +541,57 @@ app.listen(PORT, "0.0.0.0", () => {
 });
 ```
 
-### 5.2 Grade Document Action
+### 5.2 Grade Document Agent
 
-The grading pipeline is a CopilotKit **action** — a server-side function that the frontend triggers
-**with explicit parameters** (not inferred from chat messages).
+The grading pipeline is a CopilotKit **agent** — a custom `AbstractAgent` subclass whose `run()`
+method returns an RxJS `Observable<BaseEvent>`. The frontend triggers it via
+`useCoAgent<GradingState>.run()` with explicit `documentText`/`documentTitle` parameters.
 
 ```typescript
-// server/src/actions/grade-document.ts
-import { Action } from "@copilotkit/runtime";
+// server/src/agents/grade-document-agent.ts
+import { AbstractAgent, EventType } from "@ag-ui/client";
+import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
+import { Observable } from "rxjs";
 import { runGradingPipeline } from "../grading/orchestrator";
 
-export const gradeDocumentAction: Action = {
-  name: "gradeDocument",
-  description: "Evaluate a document using three calibrated judges and produce a consensus grade.",
-  parameters: [
-    {
-      name: "documentText",
-      type: "string",
-      description: "The full plain text of the document to grade.",
-      required: true,
-    },
-    {
-      name: "documentTitle",
-      type: "string",
-      description: "Optional title of the document.",
-      required: false,
-    },
-  ],
-  handler: async ({ documentText, documentTitle }, context) => {
-    const result = await runGradingPipeline({
-      documentText,
-      documentTitle,
-      emitState: (state) => {
-        context.emitStateUpdate(state);
-      },
+export class GradeDocumentAgent extends AbstractAgent {
+  constructor() {
+    super({
+      agentId: "gradeDocument",
+      description:
+        "Evaluate a document using three calibrated judges and produce a consensus grade.",
     });
-    return JSON.stringify(result);
-  },
-};
+  }
+
+  run(input: RunAgentInput): Observable<BaseEvent> {
+    return new Observable((subscriber) => {
+      (async () => {
+        try {
+          subscriber.next({ type: EventType.RUN_STARTED });
+          subscriber.next({ type: EventType.STATE_SNAPSHOT, snapshot: { phase: "idle" } });
+
+          const result = await runGradingPipeline({
+            documentText: input.state?.documentText ?? "",
+            documentTitle: input.state?.documentTitle,
+            emitState: (state) => {
+              subscriber.next({ type: EventType.STATE_SNAPSHOT, snapshot: state });
+            },
+          });
+
+          subscriber.next({ type: EventType.STATE_SNAPSHOT, snapshot: result });
+          subscriber.next({ type: EventType.RUN_FINISHED });
+          subscriber.complete();
+        } catch (error) {
+          subscriber.next({
+            type: EventType.RUN_ERROR,
+            message: error instanceof Error ? error.message : String(error),
+          });
+          subscriber.complete();
+        }
+      })();
+    });
+  }
+}
 ```
 
 ### 5.3 Grading Orchestrator

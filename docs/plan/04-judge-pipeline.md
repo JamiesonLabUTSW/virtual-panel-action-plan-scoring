@@ -23,7 +23,7 @@ Phase 5, Phase 6
               4.5 Grading Orchestrator ◄── needs 4.3 + 4.4
                          │
                          ▼
-              4.6 CopilotKit Action
+              4.6 CopilotKit Agent
                          │
                          ▼
               4.7 Frontend Wiring
@@ -236,46 +236,46 @@ Create `server/src/grading/orchestrator.ts`:
 
 ---
 
-### 4.6 — Create CopilotKit gradeDocument Action
+### 4.6 — Create CopilotKit gradeDocument Agent
 
-**Description:** Register the grading pipeline as a CopilotKit action that the frontend can trigger
-with explicit parameters.
+**Description:** Register the grading pipeline as a CopilotKit agent (custom `AbstractAgent`
+subclass) that the frontend can trigger with explicit parameters.
 
 **Changes:**
 
-Create `server/src/actions/grade-document.ts`:
+Create `server/src/agents/grade-document-agent.ts`:
 
-- Export `gradeDocumentAction` as a CopilotKit `Action` following SPEC §5.2
+- Export `GradeDocumentAgent` class extending `AbstractAgent` following SPEC §5.2
 - Name: `"gradeDocument"`
 - Parameters: `documentText` (string, required), `documentTitle` (string, optional)
-- Handler: calls `runGradingPipeline`, passing `context.emitStateUpdate` as the `emitState` callback
-- Returns `JSON.stringify(result)` of the final `GradingState`
+- The `run()` method calls `runGradingPipeline`, converting `emitState` callbacks to
+  `STATE_SNAPSHOT` events in the Observable
 
 Update `server/src/index.ts`:
 
-- Import `gradeDocumentAction`
-- Register it in the `CopilotRuntime` actions array
-- Remove the test action from Phase 2.4
+- Import `GradeDocumentAgent`
+- Register it in the `CopilotRuntime` agents record
+- Remove the test agent from Phase 2.4
 
 **Acceptance criteria:**
 
-- The action is registered and visible to CopilotKit
-- Triggering the action with a document text string runs the full pipeline
+- The agent is registered and discoverable by CopilotKit
+- Triggering the agent via `useCoAgent.run()` with document state runs the full pipeline
 - State updates are emitted to the frontend via AG-UI
-- The action returns the final GradingState as JSON
+- The agent emits `STATE_SNAPSHOT` events and completes with `RUN_FINISHED`
 
 **Code quality:**
 
-- Action parameter types match the CopilotKit `Action` interface
-- The handler is a thin wrapper — all logic lives in the orchestrator
-- Error handling: if the pipeline throws, the action should propagate the error to CopilotKit (which
-  will surface it to the frontend)
+- Agent extends `AbstractAgent` with properly typed `run()` method returning `Observable<BaseEvent>`
+- The `run()` method is a thin wrapper — all logic lives in the orchestrator
+- Error handling: if the pipeline throws, the agent should emit `RUN_ERROR` and complete the
+  Observable
 
 ---
 
-### 4.7 — Wire Frontend to gradeDocument Action
+### 4.7 — Wire Frontend to gradeDocument Agent
 
-**Description:** Update the frontend to trigger the `gradeDocument` action and display live state
+**Description:** Update the frontend to trigger the `gradeDocument` agent and display live state
 updates.
 
 **Changes:**

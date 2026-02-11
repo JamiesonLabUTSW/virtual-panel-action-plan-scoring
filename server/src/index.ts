@@ -5,6 +5,8 @@ import { CopilotRuntime, OpenAIAdapter, copilotRuntimeNodeHttpEndpoint } from "@
 import { INITIAL_GRADING_STATE } from "@shared/types";
 import express, { type Request, type Response } from "express";
 import OpenAI from "openai";
+import { DummyDefaultAgent } from "./agents/dummy-default-agent";
+import { TestAgent } from "./agents/test-agent";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -51,9 +53,15 @@ const openaiAdapter = new OpenAIAdapter({
   model: AZURE_OPENAI_DEPLOYMENT,
 });
 
-// Initialize CopilotKit runtime
+// Initialize CopilotKit runtime with test agent + dummy default agent
+// WORKAROUND: CopilotKit provider's CopilotListeners always looks for 'default' agent
+// We register a dummy one to prevent provider crash. Real fix: figure out multi-agent pattern.
+// biome-ignore lint/suspicious/noExplicitAny: CopilotKit's internal @ag-ui/client types conflict with explicit dep (documented in CLAUDE.md)
 const copilotRuntime = new CopilotRuntime({
-  actions: [],
+  agents: {
+    default: new DummyDefaultAgent(),
+    testAgent: new TestAgent(),
+  } as any,
 });
 
 // Verify @shared import works
@@ -73,8 +81,10 @@ app.get("/api/health", (_req: Request, _res: Response) => {
 });
 
 // CopilotKit runtime endpoint
+// IMPORTANT: Mount at root (not app.use("/api/copilotkit", ...)) because
+// Express strips the mount prefix from req.url, but CopilotKit's internal
+// Hono router uses req.url to match sub-paths like /api/copilotkit/info.
 app.use(
-  "/api/copilotkit",
   copilotRuntimeNodeHttpEndpoint({
     endpoint: "/api/copilotkit",
     runtime: copilotRuntime,

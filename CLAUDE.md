@@ -75,7 +75,7 @@ Browser (React + CopilotKit hooks)
 Express (port 7860)
     ├── GET  /                → React static build
     ├── POST /api/copilotkit  → CopilotKit Runtime
-    │   └── Action: gradeDocument
+    │   └── Agent: gradeDocument (AbstractAgent)
     │       └── Orchestrator (LangChain.js)
     │           ├── Judge A (Rater A few-shot calibration)
     │           ├── Judge B (Rater B few-shot calibration)
@@ -88,10 +88,11 @@ Azure OpenAI (gpt-5.1-codex-mini)
 
 **Key flows:**
 
-- Frontend triggers `gradeDocument` action via `useCoAgent<GradingState>.run()` with explicit
-  `documentText`/`documentTitle` parameters
+- Frontend triggers `gradeDocument` agent via `useAgent({ agentId }).agent.runAgent()` (not
+  `useCoAgent.run()` which is broken in v1.51) with explicit `documentText`/`documentTitle`
+  parameters
 - Judges execute sequentially (avoids Azure rate limits, enables progressive UI updates)
-- Each judge completion emits a `STATE_DELTA` to the frontend via AG-UI
+- Each judge completion emits a `STATE_SNAPSHOT` to the frontend via AG-UI
 - Consensus arbiter receives only judge outputs (not the original document) and constrains final
   score to `[min, max]` of judge scores
 
@@ -101,7 +102,7 @@ Azure OpenAI (gpt-5.1-codex-mini)
 shared/          # Types (GradingState, Phase, JudgeState) + Zod schemas (JudgeOutput, ConsensusOutput)
 server/src/
   index.ts                    # Express setup, CopilotKit runtime mount
-  actions/grade-document.ts   # CopilotKit action definition
+  agents/grade-document-agent.ts  # CopilotKit agent (AbstractAgent subclass)
   grading/
     orchestrator.ts           # Sequential judge pipeline + state emission
     judge-chain.ts            # LangChain judge with 3-tier structured output fallback
@@ -172,6 +173,40 @@ app.use(
 
 These casts are safe at runtime; only the type system complains due to version/interface mismatches.
 This pattern is used in official CopilotKit examples.
+
+## CopilotKit Agent Registration
+
+The grading pipeline uses a custom `AbstractAgent` subclass (not a CopilotKit action). Agents are
+registered in `CopilotRuntime` via the `agents` record. A `default` agent **must** be registered
+alongside custom agents (CopilotKit's `CopilotListeners` always looks for it):
+
+```typescript
+import { DummyDefaultAgent } from "./agents/dummy-default-agent";
+import { GradeDocumentAgent } from "./agents/grade-document-agent";
+
+const runtime = new CopilotRuntime({
+  agents: {
+    default: new DummyDefaultAgent(),
+    gradeDocument: new GradeDocumentAgent(),
+  },
+});
+```
+
+The agent's `run()` method returns an RxJS `Observable<BaseEvent>` that emits `STATE_SNAPSHOT`
+events as the grading pipeline progresses. The frontend subscribes via
+`useCoAgent<GradingState>({ name: "gradeDocument" })`.
+
+**CopilotKit v1.51 Agent Hook Workarounds:**
+
+- **`useCoAgent.run()` is broken** — returns `agent.runAgent` as detached method reference, losing
+  `this` context (`HttpAgent.runAgent` throws "Cannot set properties of undefined (setting
+  'abortController')"). Use `useAgent()` from `@copilotkitnext/react` to get the bound agent
+  instance and call `agent.runAgent()` directly.
+- **Hidden `CopilotChat` required** — `useCoAgent`/`useAgent` depend on chat infrastructure
+  (`abortControllerRef`, `connectAgent`) only initialized by a mounted `CopilotChat`. Mount one with
+  `display: none` if chat UI isn't needed yet.
+- **`running` from `useCoAgent`** means "requests are routed to this agent", **not** "agent is
+  executing". Use `useCopilotChat().isLoading` for actual execution status.
 
 ## Structured Output 3-Tier Fallback
 
