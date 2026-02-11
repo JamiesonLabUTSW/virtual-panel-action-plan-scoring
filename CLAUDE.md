@@ -5,8 +5,8 @@ repository.
 
 ## Project Status
 
-**Phase 1 in progress.** Implementation follows 8 phases (scaffolding → features → deploy). Before
-starting work, read:
+**Phase 2 in progress** (2.1 & 2.2 complete). Implementation follows 8 phases (scaffolding →
+features → deploy). Before starting work, read:
 
 - Issue epic (e.g., Phase 1: Project Scaffolding)
 - Sub-issue with specific requirements (e.g., #9: Initialize Root Monorepo)
@@ -146,6 +146,33 @@ https://${AZURE_OPENAI_RESOURCE}.openai.azure.com/openai/v1/
 
 No legacy `api-version` query params. Standard OpenAI SDK patterns apply.
 
+## CopilotKit + Express Integration
+
+When integrating CopilotKit runtime with Express, the OpenAI client and
+`copilotRuntimeNodeHttpEndpoint` require `as any` casts due to SDK type incompatibilities
+(documented in official CopilotKit examples).
+
+```typescript
+// OpenAI client cast needed for OpenAIAdapter type mismatch
+const adapter = new OpenAIAdapter({
+  openai: openaiClient as any,
+  model: AZURE_OPENAI_DEPLOYMENT,
+});
+
+// copilotRuntimeNodeHttpEndpoint cast needed for Express middleware type mismatch
+app.use(
+  "/api/copilotkit",
+  copilotRuntimeNodeHttpEndpoint({
+    endpoint: "/api/copilotkit",
+    runtime,
+    serviceAdapter: adapter,
+  }) as any
+);
+```
+
+These casts are safe at runtime; only the type system complains due to version/interface mismatches.
+This pattern is used in official CopilotKit examples.
+
 ## Structured Output 3-Tier Fallback
 
 Each tier uses a different API mechanism (not prompt changes):
@@ -168,6 +195,22 @@ exactly (becomes the documentation contract).
 | `PORT`                    | No       | 7860    | Server port              |
 | `MAX_DOC_CHARS`           | No       | 20000   | Document character limit |
 
+## Environment Validation
+
+At server startup, validate all required environment variables **before** initializing the app. Use
+fail-fast approach with clear error messages:
+
+```typescript
+const missingVars = requiredEnvVars.filter((v) => !process.env[v]);
+if (missingVars.length > 0) {
+  console.error("❌ Missing required environment variables:");
+  for (const v of missingVars) console.error(`   - ${v}`);
+  process.exit(1);
+}
+```
+
+Exit with code 1 and clear error list. Never just warn—silent failures break production deployments.
+
 ## TypeScript Configuration
 
 - **tsconfig.json "references"**: Remove `"references": [{ "path": "./" }]` from packages with
@@ -183,6 +226,25 @@ exactly (becomes the documentation contract).
   project conflicts with `noEmit: true`
 - **Unused parameters in strict mode**: When `noUnusedParameters: true`, prefix unused params with
   `_` (e.g., `_req`, `_res`) to avoid TS6133 errors
+
+## Library Integration & Documentation
+
+When integrating third-party libraries (especially complex ones like CopilotKit, LangChain):
+
+- Use Context7 (`mcp__plugin_context7_context7__resolve-library-id` → `__query-docs`) to find
+  official integration examples and patterns
+- Search documentation for "Express integration," "server setup," or library-specific gotchas
+- Check for known typing issues with other SDKs (e.g., OpenAI SDK compatibility with CopilotKit)
+- Review official docs for any `as any` workarounds or documented type incompatibilities
+
+## Vite Dev Server Configuration
+
+Client Vite proxy is pre-configured in `client/vite.config.ts`:
+
+- `/api/*` requests forward to `http://localhost:7860` (Express server on port 7860)
+- Allows relative URLs in client code (e.g., `runtimeUrl="/api/copilotkit"`)
+- Works in both dev mode and production without changes
+- No need to reconfigure this for new API endpoints; just add them to the server
 
 ## Evaluation Design
 
