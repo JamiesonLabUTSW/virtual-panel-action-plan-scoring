@@ -21,7 +21,7 @@ export const llm = new ChatOpenAI({
   },
   // Use Responses API (required for gpt-5.x reasoning models)
   useResponsesApi: true,
-  // Maximum tokens for reasoning model output (uses maxTokens in LangChain 0.5.x)
+  // Maximum tokens for reasoning model output (LangChain 1.2.7+)
   maxTokens: 2000,
   // NOTE: NO temperature or top_p — these will error with reasoning models
 });

@@ -184,7 +184,7 @@ const llm = new ChatOpenAI({
     baseURL: AZURE_BASE_URL,
   },
   useResponsesApi: true, // Use Responses API for GPT-5.x
-  maxOutputTokens: 2000, // NOT maxTokens (unsupported for reasoning models)
+  maxTokens: 2000, // Control output length
   // temperature: DO NOT SET — unsupported for reasoning models
   // Judge variance comes from calibration sets, not sampling
 });
