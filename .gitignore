@@ -42,3 +42,9 @@ temp/
 # Test coverage
 coverage/
 .nyc_output/
+
+# Generated documentation
+docs/api/
+
+# Husky internals
+.husky/_/

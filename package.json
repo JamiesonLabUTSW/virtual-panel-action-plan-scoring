@@ -4,17 +4,38 @@
   "description": "Calibrated LLM-as-a-judge panel on Hugging Face Spaces",
   "private": true,
   "type": "module",
-  "workspaces": [
-    "shared",
-    "server",
-    "client"
-  ],
+  "workspaces": ["shared", "server", "client"],
   "engines": {
     "node": ">=24"
   },
   "scripts": {
     "dev": "npm run dev --workspaces",
     "build": "npm run build --workspaces",
-    "clean": "npm run clean --workspaces && rm -rf node_modules"
+    "clean": "npm run clean --workspaces && rm -rf node_modules",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "format": "npm run format:biome && npm run format:prettier",
+    "format:biome": "biome format --write .",
+    "format:prettier": "prettier --write '**/*.md'",
+    "format:check": "biome format . && prettier --check '**/*.md'",
+    "type-check": "npm run type-check --workspaces --if-present",
+    "type-check:affected": "node scripts/type-check-affected.js",
+    "test": "npm run test --workspaces --if-present",
+    "test:coverage": "npm run test:coverage --workspaces --if-present",
+    "test:watch": "npm run test:watch --workspaces --if-present",
+    "knip": "knip",
+    "knip:production": "knip --production",
+    "docs": "typedoc",
+    "docs:serve": "npx http-server docs/api -o",
+    "pre-commit": "lint-staged",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.0",
+    "prettier": "^3.3.0",
+    "husky": "^9.0.0",
+    "lint-staged": "^15.0.0",
+    "knip": "^5.0.0",
+    "typedoc": "^0.26.0"
   }
 }
