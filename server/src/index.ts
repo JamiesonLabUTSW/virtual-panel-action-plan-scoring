@@ -1,8 +1,10 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { CopilotRuntime, OpenAIAdapter, copilotRuntimeNodeHttpEndpoint } from "@copilotkit/runtime";
 import { INITIAL_GRADING_STATE } from "@shared/types";
 import express, { type Request, type Response } from "express";
+import OpenAI from "openai";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -14,19 +16,45 @@ const MAX_DOC_CHARS = process.env.MAX_DOC_CHARS
   : 20000;
 
 // Validate required environment variables
-// TODO: Switch to fail-fast validation (process.exit(1)) for production
-// Currently logs warnings to allow dev mode to start without Azure credentials
 const requiredEnvVars = [
   "AZURE_OPENAI_API_KEY",
   "AZURE_OPENAI_RESOURCE",
   "AZURE_OPENAI_DEPLOYMENT",
 ];
 
-for (const envVar of requiredEnvVars) {
-  if (!process.env[envVar]) {
-    console.warn(`⚠ Missing environment variable: ${envVar}`);
+const missingVars = requiredEnvVars.filter((envVar) => !process.env[envVar]);
+
+if (missingVars.length > 0) {
+  console.error("❌ Missing required environment variables:");
+  for (const envVar of missingVars) {
+    console.error(`   - ${envVar}`);
   }
+  process.exit(1);
 }
+
+const AZURE_OPENAI_API_KEY = process.env.AZURE_OPENAI_API_KEY;
+const AZURE_OPENAI_RESOURCE = process.env.AZURE_OPENAI_RESOURCE;
+const AZURE_OPENAI_DEPLOYMENT = process.env.AZURE_OPENAI_DEPLOYMENT;
+
+// Initialize Azure OpenAI client with v1 API
+const openaiClient = new OpenAI({
+  apiKey: AZURE_OPENAI_API_KEY,
+  baseURL: `https://${AZURE_OPENAI_RESOURCE}.openai.azure.com/openai/v1/`,
+  defaultHeaders: {
+    "api-key": AZURE_OPENAI_API_KEY,
+  },
+});
+
+// Create OpenAI adapter (cast to any due to SDK typing incompatibility)
+const openaiAdapter = new OpenAIAdapter({
+  openai: openaiClient as any,
+  model: AZURE_OPENAI_DEPLOYMENT,
+});
+
+// Initialize CopilotKit runtime
+const copilotRuntime = new CopilotRuntime({
+  actions: [],
+});
 
 // Verify @shared import works
 console.info("✓ @shared/types imported successfully");
@@ -36,9 +64,23 @@ console.info("✓ INITIAL_GRADING_STATE:", INITIAL_GRADING_STATE);
 app.use(express.json());
 
 // Health check endpoint
-app.get("/api/health", (_req: Request, res: Response) => {
-  res.json({ status: "ok" });
+app.get("/api/health", (_req: Request, _res: Response) => {
+  _res.json({
+    status: "ok",
+    model: AZURE_OPENAI_DEPLOYMENT,
+    api: "azure-v1",
+  });
 });
+
+// CopilotKit runtime endpoint
+app.use(
+  "/api/copilotkit",
+  copilotRuntimeNodeHttpEndpoint({
+    endpoint: "/api/copilotkit",
+    runtime: copilotRuntime,
+    serviceAdapter: openaiAdapter,
+  }) as any
+);
 
 // Serve static files from public directory (for production with client build)
 const publicDir = path.join(__dirname, "../public");
@@ -53,8 +95,7 @@ if (!existsSync(publicDir)) {
 
 // SPA fallback: serve index.html for any non-API routes
 // Note: This must be defined AFTER all API routes (both app.get and app.use)
-// to avoid shadowing API endpoints. Future middleware like /api/copilotkit
-// should be registered before this catch-all route.
+// to avoid shadowing API endpoints.
 app.get("*", (_req: Request, res: Response) => {
   res.sendFile(path.join(publicDir, "index.html"), (err) => {
     if (err) {
@@ -66,6 +107,7 @@ app.get("*", (_req: Request, res: Response) => {
 
 // Start server
 app.listen(PORT, "0.0.0.0", () => {
-  console.info(`Server is running on http://0.0.0.0:${PORT}`);
+  console.info(`Server running on port ${PORT}`);
+  console.info(`Azure OpenAI: https://${AZURE_OPENAI_RESOURCE}.openai.azure.com/openai/v1/`);
   console.info(`MAX_DOC_CHARS: ${MAX_DOC_CHARS}`);
 });
