@@ -17,7 +17,7 @@ export const EvidenceQuote = z.object({
  * CriterionScore schema - Score for a single rubric criterion
  */
 export const CriterionScore = z.object({
-  name: z.enum(["Clarity", "Reasoning", "Completeness"]),
+  name: z.enum(["Clarity", "Reasoning", "Completeness"]).describe("Rubric criterion name"),
   score: z.number().int().min(1).max(5).describe("Score from 1 (poor) to 5 (excellent)"),
   notes: z.string().describe("2-3 sentence explanation for this criterion score"),
   evidence_quotes: z
@@ -81,9 +81,9 @@ export const ConsensusOutput = z.object({
     ),
   agreement: z.object({
     scores: z.object({
-      rater_a: z.number().int().min(1).max(5),
-      rater_b: z.number().int().min(1).max(5),
-      rater_c: z.number().int().min(1).max(5),
+      rater_a: z.number().int().min(1).max(5).describe("Score from Rater A (The Professor)"),
+      rater_b: z.number().int().min(1).max(5).describe("Score from Rater B (The Editor)"),
+      rater_c: z.number().int().min(1).max(5).describe("Score from Rater C (The Practitioner)"),
     }),
     mean_score: z
       .number()

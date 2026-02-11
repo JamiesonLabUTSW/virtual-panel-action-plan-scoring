@@ -1,8 +1,5 @@
 {
-  "*.{ts,tsx}": [
-    "biome check --write --files-ignore-unknown=true",
-    "bash -c 'npm run type-check:affected'"
-  ],
+  "*.{ts,tsx}": ["biome check --write --files-ignore-unknown=true", "npm run type-check:affected"],
   "*.md": ["prettier --write"],
   "shared/**/*.ts": ["npm run test:related --workspace=@shared/types"],
   "server/src/**/*.ts": ["npm run test:related --workspace=@grading/server"],
