@@ -1,16 +1,9 @@
-import type { JudgeOutputType, ConsensusOutputType } from "./schemas";
+import type { ConsensusOutputType, JudgeOutputType } from "./schemas";
 
 /**
  * Phase represents the current state of the grading process
  */
-export type Phase =
-  | "idle"
-  | "rater_a"
-  | "rater_b"
-  | "rater_c"
-  | "consensus"
-  | "done"
-  | "error";
+export type Phase = "idle" | "rater_a" | "rater_b" | "rater_c" | "consensus" | "done" | "error";
 
 /**
  * JudgeState represents the status of a single judge's evaluation
@@ -50,3 +43,6 @@ export const INITIAL_GRADING_STATE: GradingState = {
   phase: "idle",
   judges: {},
 };
+// test comment
+// test comment
+// test comment
