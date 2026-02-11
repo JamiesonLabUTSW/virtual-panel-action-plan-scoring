@@ -1,11 +1,6 @@
-import express, { Request, Response } from "express";
-import { INITIAL_GRADING_STATE } from "@shared/types";
+import express, { type Request, type Response } from "express";
 
 const app = express();
-
-// Verify @shared import works
-console.log("✓ @shared/types imported successfully");
-console.log("✓ INITIAL_GRADING_STATE:", INITIAL_GRADING_STATE);
 
 // Middleware
 app.use(express.json());
@@ -21,8 +16,6 @@ app.get("/", (_req: Request, res: Response) => {
 });
 
 // Start server
-const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 7860;
+const PORT = process.env.PORT ? Number.parseInt(process.env.PORT, 10) : 7860;
 
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`Server is running on http://0.0.0.0:${PORT}`);
-});
+app.listen(PORT, "0.0.0.0", () => {});

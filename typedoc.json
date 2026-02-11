@@ -1,0 +1,15 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": ["shared/types.ts", "shared/schemas.ts"],
+  "out": "docs/api",
+  "exclude": ["**/__tests__/**", "**/*.test.ts", "**/node_modules/**"],
+  "excludePrivate": true,
+  "excludeInternal": true,
+  "readme": "none",
+  "navigationLinks": {
+    "Spec": "./SPEC.md"
+  },
+  "plugin": [],
+  "sort": ["source-order"],
+  "treatWarningsAsErrors": false
+}

@@ -1,10 +1,5 @@
-import { describe, it, expect } from "vitest";
-import {
-  EvidenceQuote,
-  CriterionScore,
-  JudgeOutput,
-  ConsensusOutput,
-} from "../schemas";
+import { describe, expect, it } from "vitest";
+import { ConsensusOutput, CriterionScore, EvidenceQuote, JudgeOutput } from "../schemas";
 
 describe("EvidenceQuote schema", () => {
   it("parses valid evidence quote", () => {
@@ -76,7 +71,8 @@ describe("CriterionScore schema", () => {
     const validData = {
       name: "Clarity",
       score: 4,
-      notes: "The document is generally clear. However, the third section uses ambiguous terminology.",
+      notes:
+        "The document is generally clear. However, the third section uses ambiguous terminology.",
       evidence_quotes: [
         "The introduction clearly states the main argument",
         "Section 3 uses undefined jargon",
@@ -249,10 +245,7 @@ describe("JudgeOutput schema", () => {
     expect(() =>
       JudgeOutput.parse({
         ...validJudgeOutput,
-        criteria: [
-          ...validJudgeOutput.criteria,
-          validJudgeOutput.criteria[0],
-        ],
+        criteria: [...validJudgeOutput.criteria, validJudgeOutput.criteria[0]],
       })
     ).toThrow();
   });
@@ -391,10 +384,7 @@ describe("ConsensusOutput schema", () => {
         evidence_quotes: ["Most areas covered"],
       },
     ],
-    improvements: [
-      "Add more practical examples",
-      "Clarify methodology",
-    ],
+    improvements: ["Add more practical examples", "Clarify methodology"],
   };
 
   it("parses valid consensus output", () => {
@@ -504,13 +494,7 @@ describe("ConsensusOutput schema", () => {
   });
 
   it("rejects missing required fields", () => {
-    const fields = [
-      "final_score",
-      "rationale",
-      "agreement",
-      "criteria",
-      "improvements",
-    ];
+    const fields = ["final_score", "rationale", "agreement", "criteria", "improvements"];
 
     fields.forEach((field) => {
       const incomplete = { ...validConsensusOutput };
