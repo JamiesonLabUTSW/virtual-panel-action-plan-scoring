@@ -43,6 +43,3 @@ export const INITIAL_GRADING_STATE: GradingState = {
   phase: "idle",
   judges: {},
 };
-// test comment
-// test comment
-// test comment
