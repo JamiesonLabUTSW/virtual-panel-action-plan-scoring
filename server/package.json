@@ -18,21 +18,25 @@
     "test:related": "vitest related --run"
   },
   "dependencies": {
+    "@ag-ui/client": "^0.0.43",
     "@copilotkit/runtime": "^1.51.0",
     "@langchain/core": "^0.3.0",
     "@langchain/openai": "^0.5.0",
     "express": "^4.21.0",
     "express-rate-limit": "^7.0.0",
     "openai": "^5.0.0",
+    "rxjs": "^7.8.0",
     "zod": "^3.23.0"
   },
   "devDependencies": {
     "@types/express": "^4.17.21",
     "@types/node": "^20.0.0",
-    "tsx": "^4.0.0",
+    "@types/supertest": "^6.0.3",
+    "@vitest/coverage-v8": "^1.0.0",
+    "supertest": "^7.2.2",
     "tsup": "^8.0.0",
+    "tsx": "^4.0.0",
     "typescript": "^5.6.0",
-    "vitest": "^1.0.0",
-    "@vitest/coverage-v8": "^1.0.0"
+    "vitest": "^1.0.0"
   }
 }

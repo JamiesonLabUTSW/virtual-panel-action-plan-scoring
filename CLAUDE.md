@@ -5,8 +5,8 @@ repository.
 
 ## Project Status
 
-**Phase 1 in progress.** Implementation follows 8 phases (scaffolding → features → deploy). Before
-starting work, read:
+**Phase 2 in progress** (2.1 & 2.2 complete). Implementation follows 8 phases (scaffolding →
+features → deploy). Before starting work, read:
 
 - Issue epic (e.g., Phase 1: Project Scaffolding)
 - Sub-issue with specific requirements (e.g., #9: Initialize Root Monorepo)
@@ -48,7 +48,11 @@ reconciles their scores. The full specification lives in `SPEC.md`.
 # Install dependencies (monorepo: shared/, server/, client/)
 npm install --workspaces
 
-# Development
+# Development (preferred - shell scripts handle env var loading)
+./start-dev-server.sh  # Server with .env loaded + OPENAI_* → AZURE_OPENAI_* bridging
+./start-dev-client.sh  # Client dev server
+
+# Or run directly via npm
 npm run dev --workspace=@grading/server  # Express dev server (tsx watch)
 npm run dev --workspace=@grading/client  # Vite dev server
 
@@ -75,7 +79,7 @@ Browser (React + CopilotKit hooks)
 Express (port 7860)
     ├── GET  /                → React static build
     ├── POST /api/copilotkit  → CopilotKit Runtime
-    │   └── Action: gradeDocument
+    │   └── Agent: gradeDocument (AbstractAgent)
     │       └── Orchestrator (LangChain.js)
     │           ├── Judge A (Rater A few-shot calibration)
     │           ├── Judge B (Rater B few-shot calibration)
@@ -88,10 +92,11 @@ Azure OpenAI (gpt-5.1-codex-mini)
 
 **Key flows:**
 
-- Frontend triggers `gradeDocument` action via `useCoAgent<GradingState>.run()` with explicit
-  `documentText`/`documentTitle` parameters
+- Frontend triggers `gradeDocument` agent via `useAgent({ agentId }).agent.runAgent()` (not
+  `useCoAgent.run()` which is broken in v1.51) with explicit `documentText`/`documentTitle`
+  parameters
 - Judges execute sequentially (avoids Azure rate limits, enables progressive UI updates)
-- Each judge completion emits a `STATE_DELTA` to the frontend via AG-UI
+- Each judge completion emits a `STATE_SNAPSHOT` to the frontend via AG-UI
 - Consensus arbiter receives only judge outputs (not the original document) and constrains final
   score to `[min, max]` of judge scores
 
@@ -101,7 +106,7 @@ Azure OpenAI (gpt-5.1-codex-mini)
 shared/          # Types (GradingState, Phase, JudgeState) + Zod schemas (JudgeOutput, ConsensusOutput)
 server/src/
   index.ts                    # Express setup, CopilotKit runtime mount
-  actions/grade-document.ts   # CopilotKit action definition
+  agents/grade-document-agent.ts  # CopilotKit agent (AbstractAgent subclass)
   grading/
     orchestrator.ts           # Sequential judge pipeline + state emission
     judge-chain.ts            # LangChain judge with 3-tier structured output fallback
@@ -146,6 +151,68 @@ https://${AZURE_OPENAI_RESOURCE}.openai.azure.com/openai/v1/
 
 No legacy `api-version` query params. Standard OpenAI SDK patterns apply.
 
+## CopilotKit + Express Integration
+
+When integrating CopilotKit runtime with Express, the OpenAI client and
+`copilotRuntimeNodeHttpEndpoint` require `as any` casts due to SDK type incompatibilities
+(documented in official CopilotKit examples).
+
+```typescript
+// OpenAI client cast needed for OpenAIAdapter type mismatch
+const adapter = new OpenAIAdapter({
+  openai: openaiClient as any,
+  model: AZURE_OPENAI_DEPLOYMENT,
+});
+
+// IMPORTANT: Mount at root (not app.use("/api/copilotkit", ...)) because
+// Express strips the mount prefix from req.url, but CopilotKit's internal
+// Hono router uses req.url to match sub-paths like /api/copilotkit/info.
+app.use(
+  copilotRuntimeNodeHttpEndpoint({
+    endpoint: "/api/copilotkit",
+    runtime,
+    serviceAdapter: adapter,
+  }) as any
+);
+```
+
+These casts are safe at runtime; only the type system complains due to version/interface mismatches.
+This pattern is used in official CopilotKit examples.
+
+## CopilotKit Agent Registration
+
+The grading pipeline uses a custom `AbstractAgent` subclass (not a CopilotKit action). Agents are
+registered in `CopilotRuntime` via the `agents` record. A `default` agent **must** be registered
+alongside custom agents (CopilotKit's `CopilotListeners` always looks for it):
+
+```typescript
+import { DummyDefaultAgent } from "./agents/dummy-default-agent";
+import { GradeDocumentAgent } from "./agents/grade-document-agent";
+
+const runtime = new CopilotRuntime({
+  agents: {
+    default: new DummyDefaultAgent(),
+    gradeDocument: new GradeDocumentAgent(),
+  },
+});
+```
+
+The agent's `run()` method returns an RxJS `Observable<BaseEvent>` that emits `STATE_SNAPSHOT`
+events as the grading pipeline progresses. The frontend subscribes via
+`useCoAgent<GradingState>({ name: "gradeDocument" })`.
+
+**CopilotKit v1.51 Agent Hook Workarounds:**
+
+- **`useCoAgent.run()` is broken** — returns `agent.runAgent` as detached method reference, losing
+  `this` context (`HttpAgent.runAgent` throws "Cannot set properties of undefined (setting
+  'abortController')"). Use `useAgent()` from `@copilotkitnext/react` to get the bound agent
+  instance and call `agent.runAgent()` directly.
+- **Hidden `CopilotChat` required** — `useCoAgent`/`useAgent` depend on chat infrastructure
+  (`abortControllerRef`, `connectAgent`) only initialized by a mounted `CopilotChat`. Mount one with
+  `display: none` if chat UI isn't needed yet.
+- **`running` from `useCoAgent`** means "requests are routed to this agent", **not** "agent is
+  executing". Use `useCopilotChat().isLoading` for actual execution status.
+
 ## Structured Output 3-Tier Fallback
 
 Each tier uses a different API mechanism (not prompt changes):
@@ -168,6 +235,34 @@ exactly (becomes the documentation contract).
 | `PORT`                    | No       | 7860    | Server port              |
 | `MAX_DOC_CHARS`           | No       | 20000   | Document character limit |
 
+## Environment Validation
+
+At server startup, validate all required environment variables **before** initializing the app. Use
+fail-fast approach with clear error messages.
+
+**Pattern:** Extracted utilities for testability (Issue #21), located in
+`server/src/config/env-validation.ts`:
+
+```typescript
+// In server/src/index.ts
+import { exitIfInvalid, validateRequiredEnvVars } from "./config/env-validation";
+
+const envValidation = validateRequiredEnvVars();
+exitIfInvalid(envValidation);
+
+// After exitIfInvalid(), validated values are guaranteed to be defined
+const AZURE_OPENAI_API_KEY = envValidation.values.AZURE_OPENAI_API_KEY!;
+const AZURE_OPENAI_RESOURCE = envValidation.values.AZURE_OPENAI_RESOURCE!;
+const AZURE_OPENAI_DEPLOYMENT = envValidation.values.AZURE_OPENAI_DEPLOYMENT!;
+```
+
+The utilities provide:
+
+- `validateRequiredEnvVars(env?)`: Returns `{ isValid, missingVars, values }` for testability
+- `exitIfInvalid(result)`: Logs errors and calls `process.exit(1)` if validation fails
+
+Exit with code 1 and clear error list. Never just warn—silent failures break production deployments.
+
 ## TypeScript Configuration
 
 - **tsconfig.json "references"**: Remove `"references": [{ "path": "./" }]` from packages with
@@ -183,6 +278,25 @@ exactly (becomes the documentation contract).
   project conflicts with `noEmit: true`
 - **Unused parameters in strict mode**: When `noUnusedParameters: true`, prefix unused params with
   `_` (e.g., `_req`, `_res`) to avoid TS6133 errors
+
+## Library Integration & Documentation
+
+When integrating third-party libraries (especially complex ones like CopilotKit, LangChain):
+
+- Use Context7 (`mcp__plugin_context7_context7__resolve-library-id` → `__query-docs`) to find
+  official integration examples and patterns
+- Search documentation for "Express integration," "server setup," or library-specific gotchas
+- Check for known typing issues with other SDKs (e.g., OpenAI SDK compatibility with CopilotKit)
+- Review official docs for any `as any` workarounds or documented type incompatibilities
+
+## Vite Dev Server Configuration
+
+Client Vite proxy is pre-configured in `client/vite.config.ts`:
+
+- `/api/*` requests forward to `http://localhost:7860` (Express server on port 7860)
+- Allows relative URLs in client code (e.g., `runtimeUrl="/api/copilotkit"`)
+- Works in both dev mode and production without changes
+- No need to reconfigure this for new API endpoints; just add them to the server
 
 ## Evaluation Design
 

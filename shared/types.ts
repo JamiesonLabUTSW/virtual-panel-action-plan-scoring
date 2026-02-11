@@ -43,3 +43,19 @@ export const INITIAL_GRADING_STATE: GradingState = {
   phase: "idle",
   judges: {},
 };
+
+/**
+ * TestState for validating state emission pipeline (Phase 2.4)
+ * TODO: Remove before Phase 4 when real grading UI is implemented
+ */
+export interface TestState {
+  step: number;
+  message?: string;
+}
+
+/**
+ * Initial state for test action
+ */
+export const INITIAL_TEST_STATE: TestState = {
+  step: 0,
+};

@@ -1,8 +1,13 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { CopilotRuntime, OpenAIAdapter, copilotRuntimeNodeHttpEndpoint } from "@copilotkit/runtime";
 import { INITIAL_GRADING_STATE } from "@shared/types";
 import express, { type Request, type Response } from "express";
+import OpenAI from "openai";
+import { DummyDefaultAgent } from "./agents/dummy-default-agent";
+import { TestAgent } from "./agents/test-agent";
+import { exitIfInvalid, validateRequiredEnvVars } from "./config/env-validation";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -13,20 +18,43 @@ const MAX_DOC_CHARS = process.env.MAX_DOC_CHARS
   ? Number.parseInt(process.env.MAX_DOC_CHARS, 10)
   : 20000;
 
-// Validate required environment variables
-// TODO: Switch to fail-fast validation (process.exit(1)) for production
-// Currently logs warnings to allow dev mode to start without Azure credentials
-const requiredEnvVars = [
-  "AZURE_OPENAI_API_KEY",
-  "AZURE_OPENAI_RESOURCE",
-  "AZURE_OPENAI_DEPLOYMENT",
-];
+// Validate required environment variables (Issue #21)
+const envValidation = validateRequiredEnvVars();
+exitIfInvalid(envValidation);
 
-for (const envVar of requiredEnvVars) {
-  if (!process.env[envVar]) {
-    console.warn(`⚠ Missing environment variable: ${envVar}`);
-  }
-}
+// After exitIfInvalid(), these values are guaranteed to be defined
+// biome-ignore lint/style/noNonNullAssertion: Safe after exitIfInvalid() validation
+const AZURE_OPENAI_API_KEY = envValidation.values.AZURE_OPENAI_API_KEY!;
+// biome-ignore lint/style/noNonNullAssertion: Safe after exitIfInvalid() validation
+const AZURE_OPENAI_RESOURCE = envValidation.values.AZURE_OPENAI_RESOURCE!;
+// biome-ignore lint/style/noNonNullAssertion: Safe after exitIfInvalid() validation
+const AZURE_OPENAI_DEPLOYMENT = envValidation.values.AZURE_OPENAI_DEPLOYMENT!;
+
+// Initialize Azure OpenAI client with v1 API
+const openaiClient = new OpenAI({
+  apiKey: AZURE_OPENAI_API_KEY,
+  baseURL: `https://${AZURE_OPENAI_RESOURCE}.openai.azure.com/openai/v1/`,
+  defaultHeaders: {
+    "api-key": AZURE_OPENAI_API_KEY,
+  },
+});
+
+// Create OpenAI adapter (cast to any due to SDK typing incompatibility)
+const openaiAdapter = new OpenAIAdapter({
+  openai: openaiClient as any,
+  model: AZURE_OPENAI_DEPLOYMENT,
+});
+
+// Initialize CopilotKit runtime with test agent + dummy default agent
+// WORKAROUND: CopilotKit provider's CopilotListeners always looks for 'default' agent
+// We register a dummy one to prevent provider crash. Real fix: figure out multi-agent pattern.
+// biome-ignore lint/suspicious/noExplicitAny: CopilotKit's internal @ag-ui/client types conflict with explicit dep (documented in CLAUDE.md)
+const copilotRuntime = new CopilotRuntime({
+  agents: {
+    default: new DummyDefaultAgent(),
+    testAgent: new TestAgent(),
+  } as any,
+});
 
 // Verify @shared import works
 console.info("✓ @shared/types imported successfully");
@@ -36,9 +64,25 @@ console.info("✓ INITIAL_GRADING_STATE:", INITIAL_GRADING_STATE);
 app.use(express.json());
 
 // Health check endpoint
-app.get("/api/health", (_req: Request, res: Response) => {
-  res.json({ status: "ok" });
+app.get("/api/health", (_req: Request, _res: Response) => {
+  _res.json({
+    status: "ok",
+    model: AZURE_OPENAI_DEPLOYMENT,
+    api: "azure-v1",
+  });
 });
+
+// CopilotKit runtime endpoint
+// IMPORTANT: Mount at root (not app.use("/api/copilotkit", ...)) because
+// Express strips the mount prefix from req.url, but CopilotKit's internal
+// Hono router uses req.url to match sub-paths like /api/copilotkit/info.
+app.use(
+  copilotRuntimeNodeHttpEndpoint({
+    endpoint: "/api/copilotkit",
+    runtime: copilotRuntime,
+    serviceAdapter: openaiAdapter,
+  }) as any
+);
 
 // Serve static files from public directory (for production with client build)
 const publicDir = path.join(__dirname, "../public");
@@ -53,8 +97,7 @@ if (!existsSync(publicDir)) {
 
 // SPA fallback: serve index.html for any non-API routes
 // Note: This must be defined AFTER all API routes (both app.get and app.use)
-// to avoid shadowing API endpoints. Future middleware like /api/copilotkit
-// should be registered before this catch-all route.
+// to avoid shadowing API endpoints.
 app.get("*", (_req: Request, res: Response) => {
   res.sendFile(path.join(publicDir, "index.html"), (err) => {
     if (err) {
@@ -66,6 +109,7 @@ app.get("*", (_req: Request, res: Response) => {
 
 // Start server
 app.listen(PORT, "0.0.0.0", () => {
-  console.info(`Server is running on http://0.0.0.0:${PORT}`);
+  console.info(`Server running on port ${PORT}`);
+  console.info(`Azure OpenAI: https://${AZURE_OPENAI_RESOURCE}.openai.azure.com/openai/v1/`);
   console.info(`MAX_DOC_CHARS: ${MAX_DOC_CHARS}`);
 });

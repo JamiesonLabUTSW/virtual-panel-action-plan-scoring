@@ -19,7 +19,7 @@ single HTTP endpoint. Confirm per-session state isolation and AG-UI streaming.
               └─────────┐       ┌───────┘
                         ▼       ▼
               2.3 E2E Chat Validation ◄── requires both tracks
-              2.4 Test Action + State Emission
+              2.4 Test Agent + State Emission
                         │
                         ▼
               2.5 Session Isolation Validation
@@ -151,43 +151,44 @@ Runtime → Azure OpenAI v1 → back to the frontend.
 
 ---
 
-### 2.4 — Register a Test Action with State Emission
+### 2.4 — Register a Test Agent with State Emission
 
-**Description:** Create a trivial CopilotKit action that emits state updates, verifying the state
-streaming pipeline works before building the real grading action.
+**Description:** Create a custom `AbstractAgent` subclass that emits state updates, verifying the
+state streaming pipeline works before building the real grading agent.
 
 **Changes:**
 
-Create `server/src/actions/test-action.ts`:
+Create `server/src/agents/test-agent.ts`:
 
-- Action name: `testAction`
+- Agent name: `testAgent`
 - Parameters: `{ message: string }`
 - Handler: emits 3 state updates with 1-second delays between them (simulating judge progression),
   then returns a final result
 - Each state update changes a `step` field (1 → 2 → 3)
 
-Register the test action in `CopilotRuntime`:
+Register the test agent in `CopilotRuntime`:
 
-- Add to the `actions` array
+- Add to the `agents` record
 
-Update the frontend to consume the test action:
+Update the frontend to consume the test agent:
 
-- Use `useCoAgent` (or the appropriate CopilotKit hook) to subscribe to state
+- Use `useCoAgent<TestState>` + `useCoAgentStateRender` to subscribe to state
 - Display the current `step` value on screen
-- Add a button that triggers the test action
+- Add a button that triggers the agent's `run()` method
 
 **Acceptance criteria:**
 
-- Clicking the button triggers the action
+- Clicking the button triggers the agent's `run()` method
 - The UI updates 3 times as state emissions arrive (step 1 → 2 → 3)
-- State updates are received via AG-UI `STATE_DELTA` events (verify in browser DevTools network tab)
-- The action completes and the final state is visible
+- State updates are received via AG-UI `STATE_SNAPSHOT` events (verify in browser DevTools network
+  tab)
+- The agent run completes and the final state is visible
 
 **Code quality:**
 
-- Test action is clearly marked as temporary (will be replaced by gradeDocument in Phase 4)
-- State emission uses the same `context.emitStateUpdate()` pattern that the real orchestrator will
-  use
+- Test agent is clearly marked as temporary (will be replaced by GradeDocumentAgent in Phase 4)
+- State emission uses `STATE_SNAPSHOT` events via RxJS Observable, the same pattern that the real
+  orchestrator will use
 
 ---
 
