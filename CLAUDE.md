@@ -59,6 +59,10 @@ npm run dev --workspace=@grading/client  # Vite dev server
 # Testing
 npm test --workspace=@shared/types    # Run tests (vitest configured in each package)
 
+# Integration tests (gated by env var, require real Azure credentials)
+./run-integration-tests.sh            # Loads .env, sets RUN_INTEGRATION_TESTS=true, runs gated tests
+# Use it.skipIf(!process.env.RUN_INTEGRATION_TESTS) to gate expensive API calls
+
 # Production build
 npm run build --workspace=@grading/client   # Vite build → client/dist
 npm run build --workspace=@grading/server   # tsup build → server/dist (bundles @shared)
@@ -142,6 +146,17 @@ This is a reasoning model with non-standard parameter support:
 - Use `useResponsesApi: true` in LangChain's `ChatOpenAI` config
 - In LangChain 1.2.7+: `maxTokens` parameter works correctly; older versions may not expose it in
   types. Use whichever parameter works with the installed LangChain version.
+
+**Azure Responses API (OpenAI SDK):**
+
+- gpt-5.1-codex-mini **does NOT support Chat Completions API** — use Responses API
+  (`client.responses.create()`)
+- Use standard `OpenAI` client (not `AzureOpenAI`) with Azure baseURL:
+  `https://${resource}.openai.azure.com/openai/v1/`
+- Parameters: `input` (user message), `instructions` (system prompt), `text.format` (replaces
+  `response_format`), `max_output_tokens` (replaces `max_completion_tokens`)
+- Response structure: `response.content[0].text` (not `choices[0].message.content`)
+- Usage tokens: `input_tokens`/`output_tokens` (not `prompt_tokens`/`completion_tokens`)
 
 ## Library Version Notes
 
@@ -238,6 +253,15 @@ Each tier uses a different API mechanism (not prompt changes):
 **Zod schema pattern:** Every field must include `.describe()` for model documentation. Never use
 `z.optional()`; use `z.nullable()` if a field can be null. Field order in schema matches SPEC
 exactly (becomes the documentation contract).
+
+**Responses API JSON schema strict mode requirements:**
+
+- JSON schema must include: `type: "object"`, `additionalProperties: false`, `properties` field,
+  `name` field
+- Use `zod-to-json-schema` with `{ target: "openApi3", $refStrategy: "none" }` to inline all
+  definitions
+- Validate with defensive checks before API call (add missing `type`/`additionalProperties` if
+  needed)
 
 ## Environment Variables
 
