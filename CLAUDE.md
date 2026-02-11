@@ -48,7 +48,11 @@ reconciles their scores. The full specification lives in `SPEC.md`.
 # Install dependencies (monorepo: shared/, server/, client/)
 npm install --workspaces
 
-# Development
+# Development (preferred - shell scripts handle env var loading)
+./start-dev-server.sh  # Server with .env loaded + OPENAI_* → AZURE_OPENAI_* bridging
+./start-dev-client.sh  # Client dev server
+
+# Or run directly via npm
 npm run dev --workspace=@grading/server  # Express dev server (tsx watch)
 npm run dev --workspace=@grading/client  # Vite dev server
 
@@ -160,9 +164,10 @@ const adapter = new OpenAIAdapter({
   model: AZURE_OPENAI_DEPLOYMENT,
 });
 
-// copilotRuntimeNodeHttpEndpoint cast needed for Express middleware type mismatch
+// IMPORTANT: Mount at root (not app.use("/api/copilotkit", ...)) because
+// Express strips the mount prefix from req.url, but CopilotKit's internal
+// Hono router uses req.url to match sub-paths like /api/copilotkit/info.
 app.use(
-  "/api/copilotkit",
   copilotRuntimeNodeHttpEndpoint({
     endpoint: "/api/copilotkit",
     runtime,
@@ -233,16 +238,28 @@ exactly (becomes the documentation contract).
 ## Environment Validation
 
 At server startup, validate all required environment variables **before** initializing the app. Use
-fail-fast approach with clear error messages:
+fail-fast approach with clear error messages.
+
+**Pattern:** Extracted utilities for testability (Issue #21), located in
+`server/src/config/env-validation.ts`:
 
 ```typescript
-const missingVars = requiredEnvVars.filter((v) => !process.env[v]);
-if (missingVars.length > 0) {
-  console.error("❌ Missing required environment variables:");
-  for (const v of missingVars) console.error(`   - ${v}`);
-  process.exit(1);
-}
+// In server/src/index.ts
+import { exitIfInvalid, validateRequiredEnvVars } from "./config/env-validation";
+
+const envValidation = validateRequiredEnvVars();
+exitIfInvalid(envValidation);
+
+// After exitIfInvalid(), validated values are guaranteed to be defined
+const AZURE_OPENAI_API_KEY = envValidation.values.AZURE_OPENAI_API_KEY!;
+const AZURE_OPENAI_RESOURCE = envValidation.values.AZURE_OPENAI_RESOURCE!;
+const AZURE_OPENAI_DEPLOYMENT = envValidation.values.AZURE_OPENAI_DEPLOYMENT!;
 ```
+
+The utilities provide:
+
+- `validateRequiredEnvVars(env?)`: Returns `{ isValid, missingVars, values }` for testability
+- `exitIfInvalid(result)`: Logs errors and calls `process.exit(1)` if validation fails
 
 Exit with code 1 and clear error list. Never just warn—silent failures break production deployments.
 
