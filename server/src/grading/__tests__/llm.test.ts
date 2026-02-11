@@ -1,18 +1,18 @@
-import { ChatOpenAI } from "@langchain/openai";
+import OpenAI from "openai";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 /**
- * Tests for ChatOpenAI instantiation and basic connectivity (Issue #23)
+ * Tests for OpenAI client with Azure Responses API (Issue #30)
  *
  * These tests verify:
- * - ChatOpenAI instantiates without errors
- * - Environment variables are correctly passed to ChatOpenAI
+ * - OpenAI client instantiates without errors for Azure Responses API
+ * - Environment variables are correctly passed to OpenAI client
  * - No unsupported parameters (temperature, top_p) are configured
- * - maxTokens is correctly configured for output control
- * - Basic invoke call returns a valid response structure
+ * - max_output_tokens is correctly configured for reasoning models
+ * - Basic responses call returns a valid response structure
  */
 
-describe("ChatOpenAI Configuration (Issue #23)", () => {
+describe("OpenAI Client with Azure Responses API (Issue #30)", () => {
   const originalEnv = { ...process.env };
 
   beforeAll(() => {
@@ -27,76 +27,60 @@ describe("ChatOpenAI Configuration (Issue #23)", () => {
     process.env = originalEnv;
   });
 
-  it("should instantiate ChatOpenAI without errors", () => {
+  it("should instantiate OpenAI client for Azure Responses API without errors", () => {
     expect(() => {
-      new ChatOpenAI({
+      new OpenAI({
         // biome-ignore lint/style/noNonNullAssertion: env vars guaranteed from beforeAll
-        model: process.env.AZURE_OPENAI_DEPLOYMENT!,
-        openAIApiKey: process.env.AZURE_OPENAI_API_KEY,
-        configuration: {
-          baseURL: `https://${process.env.AZURE_OPENAI_RESOURCE}.openai.azure.com/openai/v1/`,
-        },
-        useResponsesApi: true,
-        maxTokens: 2000,
+        apiKey: process.env.AZURE_OPENAI_API_KEY!,
+        baseURL: `https://${process.env.AZURE_OPENAI_RESOURCE}.openai.azure.com/openai/v1/`,
       });
     }).not.toThrow();
   });
 
   it("should construct correct Azure baseURL from environment variables", () => {
-    const llm = new ChatOpenAI({
-      // biome-ignore lint/style/noNonNullAssertion: env vars guaranteed from beforeAll
-      model: process.env.AZURE_OPENAI_DEPLOYMENT!,
-      openAIApiKey: process.env.AZURE_OPENAI_API_KEY,
-      configuration: {
-        baseURL: `https://${process.env.AZURE_OPENAI_RESOURCE}.openai.azure.com/openai/v1/`,
-      },
-      useResponsesApi: true,
-      maxTokens: 2000,
+    // biome-ignore lint/style/noNonNullAssertion: env vars guaranteed from beforeAll
+    const testClient = new OpenAI({
+      apiKey: process.env.AZURE_OPENAI_API_KEY!,
+      baseURL: `https://${process.env.AZURE_OPENAI_RESOURCE}.openai.azure.com/openai/v1/`,
     });
 
     // Verify the instance has the expected properties
-    expect(llm).toBeDefined();
-    expect(llm.model).toBe("gpt-5.1-codex-mini");
+    expect(testClient).toBeDefined();
+    expect(testClient.baseURL).toBe(
+      "https://test-resource.openai.azure.com/openai/v1/",
+    );
   });
 
-  it("should use useResponsesApi for gpt-5.x models", () => {
-    const config = {
+  it("should use max_output_tokens for reasoning models (Responses API)", () => {
+    const params = {
       // biome-ignore lint/style/noNonNullAssertion: env vars guaranteed from beforeAll
       model: process.env.AZURE_OPENAI_DEPLOYMENT!,
-      openAIApiKey: process.env.AZURE_OPENAI_API_KEY,
-      configuration: {
-        baseURL: `https://${process.env.AZURE_OPENAI_RESOURCE}.openai.azure.com/openai/v1/`,
-      },
-      useResponsesApi: true,
-      maxTokens: 2000,
+      input: "Test",
+      max_output_tokens: 2000,
     };
 
-    // Verify that the config object includes useResponsesApi
-    expect(config.useResponsesApi).toBe(true);
-    expect(config.maxTokens).toBe(2000);
+    // Verify that the params object includes max_output_tokens (Responses API)
+    expect(params.max_output_tokens).toBe(2000);
+    expect(params.model).toBe("gpt-5.1-codex-mini");
   });
 
   it("should not include unsupported parameters (temperature, top_p)", () => {
-    // This test verifies that the LLM configuration does not include
+    // This test verifies that the API call parameters do not include
     // parameters that error with reasoning models (gpt-5.1-codex-mini).
-    // Note: maxTokens is used here (LangChain 1.2.7, OpenAI SDK 6.x).
-    const config = {
+    const params = {
       // biome-ignore lint/style/noNonNullAssertion: env vars guaranteed from beforeAll
       model: process.env.AZURE_OPENAI_DEPLOYMENT!,
-      openAIApiKey: process.env.AZURE_OPENAI_API_KEY,
-      configuration: {
-        baseURL: `https://${process.env.AZURE_OPENAI_RESOURCE}.openai.azure.com/openai/v1/`,
-      },
-      useResponsesApi: true,
-      maxTokens: 2000,
-      // Intentionally NOT including: temperature, top_p
+      input: "Test",
+      max_output_tokens: 2000,
+      // Intentionally NOT including: temperature, top_p, max_tokens
     };
 
     // Verify unsupported parameters are absent
-    expect("temperature" in config).toBe(false);
-    expect("top_p" in config).toBe(false);
-    // Verify maxTokens is present for output control
-    expect("maxTokens" in config).toBe(true);
+    expect("temperature" in params).toBe(false);
+    expect("top_p" in params).toBe(false);
+    expect("max_tokens" in params).toBe(false);
+    // Verify max_output_tokens is present for output control (Responses API)
+    expect("max_output_tokens" in params).toBe(true);
   });
 
   it("should have required environment variables defined", () => {
@@ -109,19 +93,20 @@ describe("ChatOpenAI Configuration (Issue #23)", () => {
     expect(process.env.AZURE_OPENAI_DEPLOYMENT).toBe("gpt-5.1-codex-mini");
   });
 
-  it("should correctly export the llm instance", async () => {
+  it("should correctly export the client, MODEL, and MAX_COMPLETION_TOKENS", async () => {
     // Dynamically import to get a fresh instance with test env vars
-    const { llm: importedLlm } = await import("../llm");
+    const { client: importedClient, MODEL: importedModel, MAX_COMPLETION_TOKENS } = await import("../llm");
 
-    expect(importedLlm).toBeDefined();
-    expect(importedLlm.model).toBe("gpt-5.1-codex-mini");
+    expect(importedClient).toBeDefined();
+    expect(importedModel).toBe("gpt-5.1-codex-mini");
+    expect(MAX_COMPLETION_TOKENS).toBe(16000);
   });
 
   it.skipIf(!process.env.RUN_INTEGRATION_TESTS)(
-    "should successfully invoke with Azure OpenAI and return valid response (Integration Test)",
+    "should successfully call Azure Responses API and return valid response (Integration Test)",
     async () => {
-      // This test verifies acceptance criteria from Issue #23:
-      // - Simple .invoke() call returns valid response from Azure gpt-5.1-codex-mini
+      // This test verifies acceptance criteria from Issue #30:
+      // - Simple responses.create() call returns valid response from Azure gpt-5.1-codex-mini
       // - No unsupported parameters cause errors
       //
       // IMPORTANT: This is an integration test that makes a real API call to Azure.
@@ -132,30 +117,31 @@ describe("ChatOpenAI Configuration (Issue #23)", () => {
       // - AZURE_OPENAI_RESOURCE
       // - AZURE_OPENAI_DEPLOYMENT
 
-      const testLlm = new ChatOpenAI({
+      const testClient = new OpenAI({
         // biome-ignore lint/style/noNonNullAssertion: env vars guaranteed from beforeAll
-        model: process.env.AZURE_OPENAI_DEPLOYMENT!,
-        openAIApiKey: process.env.AZURE_OPENAI_API_KEY,
-        configuration: {
-          baseURL: `https://${process.env.AZURE_OPENAI_RESOURCE}.openai.azure.com/openai/v1/`,
-        },
-        useResponsesApi: true,
-        maxTokens: 100, // Small limit for test
-        verbose: true, // Enable to verify parameters in logs
+        apiKey: process.env.AZURE_OPENAI_API_KEY!,
+        baseURL: `https://${process.env.AZURE_OPENAI_RESOURCE}.openai.azure.com/openai/v1/`,
       });
 
-      // Make a simple invoke call as specified in Issue #23
-      const response = await testLlm.invoke([["human", "Say hello"]]);
+      // Make a simple Responses API call
+      const response = await testClient.responses.create({
+        // biome-ignore lint/style/noNonNullAssertion: env vars guaranteed from beforeAll
+        model: process.env.AZURE_OPENAI_DEPLOYMENT!,
+        input: "Say hello",
+        max_output_tokens: 100, // Small limit for test
+      });
 
-      // Verify response structure
+      // Verify response structure (Responses API format)
       expect(response).toBeDefined();
       expect(response.content).toBeDefined();
-      expect(typeof response.content).toBe("string");
       expect(response.content.length).toBeGreaterThan(0);
+      expect(response.content[0].type).toBe("text");
+      expect(response.content[0].text).toBeDefined();
+      expect(typeof response.content[0].text).toBe("string");
+      expect(response.content[0].text.length).toBeGreaterThan(0);
 
       // Verify response came from the correct model
-      expect(response.response_metadata).toBeDefined();
-      // Azure responses should include model information in metadata
+      expect(response.model).toBeDefined();
     },
     30000
   ); // 30 second timeout for API call

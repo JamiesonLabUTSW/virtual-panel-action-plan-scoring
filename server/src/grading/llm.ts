@@ -1,27 +1,47 @@
-import { ChatOpenAI } from "@langchain/openai";
+import OpenAI from "openai";
 
 /**
- * Shared LLM instance for judge and consensus chains.
+ * Shared OpenAI client for Azure Responses API (reasoning models).
  *
- * Targets gpt-5.1-codex-mini via Azure OpenAI v1 API with 3-tier structured
- * output fallback (json_schema → function calling → json_object + Zod validation).
+ * Targets gpt-5.1-codex-mini via Azure OpenAI Responses API (/openai/v1/responses) with 3-tier
+ * structured output fallback (json_schema strict → json_schema non-strict → json_object + Zod validation).
+ *
+ * **Important for Azure Responses API:**
+ * - Use standard OpenAI client (not AzureOpenAI) with Azure base_url
+ * - Endpoint: https://{resource}.openai.azure.com/openai/v1/
+ * - Uses max_output_tokens (not max_completion_tokens)
  *
  * **Important constraints for reasoning models (gpt-5.1-codex-mini):**
  * - No `temperature` or `top_p` — these parameters error with reasoning models
- * - `useResponsesApi: true` required for gpt-5.x models
- * - `maxTokens` controls output length (LangChain 1.2.7, OpenAI SDK 6.x)
+ * - Responses API uses `max_output_tokens` (not `max_completion_tokens`)
  * - `reasoning_effort` defaults to `none`; set explicitly if needed
+ *
+ * Note: Lazy-initialized to allow tests to set environment variables before client creation
  */
-export const llm = new ChatOpenAI({
-  // biome-ignore lint/style/noNonNullAssertion: Safe — values validated at startup (Phase 2.6)
-  model: process.env.AZURE_OPENAI_DEPLOYMENT!,
-  openAIApiKey: process.env.AZURE_OPENAI_API_KEY,
-  configuration: {
-    baseURL: `https://${process.env.AZURE_OPENAI_RESOURCE}.openai.azure.com/openai/v1/`,
+let _client: OpenAI | null = null;
+
+export const client: OpenAI = new Proxy({} as OpenAI, {
+  get(_target, prop) {
+    if (!_client) {
+      _client = new OpenAI({
+        // biome-ignore lint/style/noNonNullAssertion: Safe — values validated at startup (Phase 2.6)
+        apiKey: process.env.AZURE_OPENAI_API_KEY!,
+        baseURL: `https://${process.env.AZURE_OPENAI_RESOURCE!}.openai.azure.com/openai/v1/`,
+      });
+    }
+    return _client[prop as keyof OpenAI];
   },
-  // Use Responses API (required for gpt-5.x reasoning models)
-  useResponsesApi: true,
-  // Maximum tokens for reasoning model output (LangChain 1.2.7+)
-  maxTokens: 2000,
-  // NOTE: NO temperature or top_p — these will error with reasoning models
 });
+
+/**
+ * Model deployment name from environment
+ */
+// biome-ignore lint/style/noNonNullAssertion: Safe — values validated at startup
+export const MODEL = process.env.AZURE_OPENAI_DEPLOYMENT!;
+
+/**
+ * Default maximum output tokens for reasoning models.
+ * Set high (16000) because reasoning models use internal chain-of-thought
+ * tokens that count against max_output_tokens.
+ */
+export const MAX_COMPLETION_TOKENS = 16000;
