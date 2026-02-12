@@ -79,6 +79,18 @@ docker run -p 7860:7860 --env-file .env grading-demo
 **Test packages** (e.g., shared/): Include `"test": "vitest run"` and `"test:watch": "vitest"`
 scripts in package.json; place tests in `__tests__/` directory.
 
+**Testing patterns**:
+
+- Follow existing test structure in `__tests__/` directories (see `orchestrator.test.ts` for
+  patterns)
+- Use Vitest mocks for external dependencies (`vi.mock("../judge-chain")` pattern)
+- Mock helper functions: `createMockJudgeOutput()`, `createMockJudgeResult()`,
+  `createMockConsensusResult()`
+- Track emitted states with `emittedStates` array to verify state progression
+
+**UAT with Playwright**: Start servers with `./start-dev-server.sh` and `./start-dev-client.sh`,
+then use Playwright MCP tools for end-to-end testing (navigate, click, wait, snapshot).
+
 ## Architecture
 
 ```
@@ -369,6 +381,15 @@ Shared rubric: 1-5 scale (Poor/Weak/Adequate/Strong/Excellent) loaded from
 Consensus arbiter references judge rationales (not the original proposal), outputs `agreement_level`
 (strong/moderate/weak), and deduplicates improvement suggestions.
 
+## Action Item Parsing
+
+**Critical architectural decision**: Each document is ONE action item, not split by lines.
+
+- Frontend sends `[text.trim()]` as single-item array (entire document as one element)
+- Server truncates by character count (20,000 chars max), not item count
+- `wasTruncated` flag set when original text exceeds 20k chars
+- Users paste multi-paragraph documents; splitting by newlines would break the content
+
 ## Error Handling Conventions
 
 - Single judge failure → continue grading with remaining judges, show error in UI
@@ -376,6 +397,10 @@ Consensus arbiter references judge rationales (not the original proposal), outpu
 - Proposal content provided as structured action items; system prompt loaded from
   `server/src/resources/rubric.txt` includes injection defense
 - Never log proposal content; log only per-run metrics (scores, latency)
+- **Error sanitization**: All user-facing errors use generic message "An error occurred during
+  evaluation. Please try again." Technical details logged server-side only
+- **State reset pattern**: Use `setState(INITIAL_GRADING_STATE)` for full reset, not spread
+  operator—prevents stale data in CopilotKit chat context
 
 **Known Implementation Limitations:**
 

@@ -22,15 +22,15 @@ export default function GradingView() {
 
   const [hasStarted, setHasStarted] = useState(false);
   const [resetKey, setResetKey] = useState(0);
+  const [truncationDismissed, setTruncationDismissed] = useState(false);
 
   const handleSubmit = useCallback(
     async (title: string, text: string) => {
-      const items = text
-        .split("\n")
-        .map((s) => s.trim())
-        .filter((s) => s.length > 0);
+      // Treat entire text as a single action item (no splitting by lines)
+      const trimmedText = text.trim();
+      if (trimmedText.length === 0) return;
 
-      if (items.length === 0) return;
+      const items = [trimmedText];
 
       setState((prev) => ({
         ...(prev ?? INITIAL_GRADING_STATE),
@@ -46,6 +46,7 @@ export default function GradingView() {
       }));
 
       setHasStarted(true);
+      setTruncationDismissed(false); // Reset truncation warning for new submission
       try {
         await agent.runAgent();
       } catch (err) {
@@ -69,12 +70,8 @@ export default function GradingView() {
   }, [setState]);
 
   const handleClearError = useCallback(() => {
-    // Clear error and return to idle state, allowing new submission
-    setState((prev) => ({
-      ...(prev ?? INITIAL_GRADING_STATE),
-      phase: "idle",
-      error: undefined,
-    }));
+    // Full reset to clear all stale data (judges, consensus, proposal)
+    setState(INITIAL_GRADING_STATE);
     setHasStarted(false);
     setResetKey((prev) => prev + 1);
   }, [setState]);
@@ -128,6 +125,53 @@ Help the user understand the results by:
               <div className="space-y-8">
                 {/* Timeline */}
                 {state && <GradingTimeline state={state} />}
+
+                {/* Truncation warning */}
+                {state?.proposal?.wasTruncated && !truncationDismissed && (
+                  <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4 flex items-center justify-between animate-fade-in">
+                    <div className="flex items-center gap-3">
+                      <svg
+                        className="w-5 h-5 text-yellow-400 flex-shrink-0"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth={2}
+                        aria-hidden="true"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                        />
+                      </svg>
+                      <p className="text-sm text-yellow-400">
+                        Your proposal exceeded 20,000 characters and was truncated to fit within
+                        limits
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setTruncationDismissed(true)}
+                      className="text-yellow-400 hover:text-yellow-300 transition-colors ml-4 flex-shrink-0"
+                      aria-label="Dismiss warning"
+                    >
+                      <svg
+                        className="w-5 h-5"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth={2}
+                        aria-hidden="true"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M6 18L18 6M6 6l12 12"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+                )}
 
                 {/* Error banner */}
                 {phase === "error" && state?.error && (
