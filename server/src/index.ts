@@ -90,7 +90,7 @@ if (!existsSync(publicDir)) {
 // SPA fallback: serve index.html for any non-API routes
 // Note: This must be defined AFTER all API routes (both app.get and app.use)
 // to avoid shadowing API endpoints.
-app.get("*", (_req: Request, res: Response) => {
+app.get("*path", (_req: Request, res: Response) => {
   res.sendFile(path.join(publicDir, "index.html"), (err) => {
     if (err) {
       console.error("Failed to serve index.html:", err);

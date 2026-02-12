@@ -94,7 +94,7 @@ describe("GradeDocumentAgent", () => {
     expect(lastPipelineSnapshot.judges).toBeDefined();
   });
 
-  it("empty action items: emits error state + RUN_ERROR + RUN_FINISHED", async () => {
+  it("empty action items: emits error state + RUN_ERROR (no RUN_FINISHED)", async () => {
     const input = {
       ...baseInput,
       state: {
@@ -111,7 +111,8 @@ describe("GradeDocumentAgent", () => {
     expect(types).toContain(EventType.RUN_STARTED);
     expect(types).toContain(EventType.STATE_SNAPSHOT);
     expect(types).toContain(EventType.RUN_ERROR);
-    expect(types).toContain(EventType.RUN_FINISHED);
+    // AG-UI does not allow events after RUN_ERROR
+    expect(types).not.toContain(EventType.RUN_FINISHED);
 
     // Pipeline should not have been called
     expect(mockRunGradingPipeline).not.toHaveBeenCalled();
@@ -137,30 +138,19 @@ describe("GradeDocumentAgent", () => {
     expect((errorEvent as any).message).toBe("Pipeline exploded");
   });
 
-  it("reads proposal from input root when state.proposal is missing (CopilotKit workaround)", async () => {
-    mockRunGradingPipeline.mockImplementation(async () => ({
-      phase: "done",
-      judges: {},
-    }));
-
+  it("missing state.proposal: emits RUN_ERROR for empty action items", async () => {
     const input = {
       threadId: "thread-1",
       runId: "run-1",
       state: {},
-      proposal: {
-        id: 99,
-        title: "Root Proposal",
-        actionItems: ["Root Item"],
-      },
     };
 
-    await collectEvents(agent, input);
+    const events = await collectEvents(agent, input);
+    const types = events.map((e) => e.type);
 
-    expect(mockRunGradingPipeline).toHaveBeenCalledTimes(1);
-    const callArgs = mockRunGradingPipeline.mock.calls[0][0];
-    expect(callArgs.proposalId).toBe(99);
-    expect(callArgs.proposalTitle).toBe("Root Proposal");
-    expect(callArgs.actionItems).toEqual(["Root Item"]);
+    // With no proposal in state, actionItems is empty → validation error
+    expect(types).toContain(EventType.RUN_ERROR);
+    expect(mockRunGradingPipeline).not.toHaveBeenCalled();
   });
 
   it("cancellation: unsubscribe prevents further emissions", async () => {
