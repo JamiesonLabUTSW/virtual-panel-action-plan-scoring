@@ -143,11 +143,18 @@ Help the user understand the results by:
                   </div>
                 )}
 
+                {/* Consensus Panel - promoted when done */}
+                {phase === "done" && state?.consensus && (
+                  <ConsensusPanel state={state} highlighted={true} />
+                )}
+
                 {/* Judge cards */}
                 {state && <JudgeCards state={state} />}
 
-                {/* Consensus */}
-                {state && <ConsensusPanel state={state} />}
+                {/* Consensus Panel - normal position when evaluating */}
+                {phase !== "done" && state?.consensus && (
+                  <ConsensusPanel state={state} highlighted={false} />
+                )}
 
                 {/* Done actions */}
                 {phase === "done" && state && (
