@@ -1,212 +1,130 @@
 import { describe, expect, it } from "vitest";
-import { ConsensusOutput, CriterionScore, EvidenceQuote, JudgeOutput } from "../schemas";
+import { ActionItemReview, ConsensusOutput, JudgeOutput } from "../schemas";
 
-describe("EvidenceQuote schema", () => {
-  it("parses valid evidence quote", () => {
-    const validData = {
-      quote: "This is a direct quote from the document demonstrating clarity",
-      supports: "Clarity",
-      valence: "positive",
-    };
-    const result = EvidenceQuote.parse(validData);
-    expect(result).toEqual(validData);
+describe("ActionItemReview schema", () => {
+  const validReview = {
+    action_item_id: 1,
+    comment: "Clear timeline and measurable targets. Consider adding interim milestones.",
+    score: 4,
+  };
+
+  it("parses valid action item review", () => {
+    const result = ActionItemReview.parse(validReview);
+    expect(result).toEqual(validReview);
   });
 
-  it("rejects missing quote field", () => {
+  it("rejects missing action_item_id", () => {
     expect(() =>
-      EvidenceQuote.parse({
-        supports: "Clarity",
-        valence: "positive",
+      ActionItemReview.parse({
+        comment: "Good item.",
+        score: 4,
       })
     ).toThrow();
   });
 
-  it("rejects invalid support criterion", () => {
+  it("rejects non-integer action_item_id", () => {
     expect(() =>
-      EvidenceQuote.parse({
-        quote: "Some quote",
-        supports: "InvalidCriterion",
-        valence: "positive",
+      ActionItemReview.parse({
+        ...validReview,
+        action_item_id: 1.5,
       })
     ).toThrow();
   });
 
-  it("rejects invalid valence", () => {
+  it("rejects missing comment", () => {
     expect(() =>
-      EvidenceQuote.parse({
-        quote: "Some quote",
-        supports: "Clarity",
-        valence: "neutral",
+      ActionItemReview.parse({
+        action_item_id: 1,
+        score: 4,
       })
     ).toThrow();
-  });
-
-  it("accepts all three support types", () => {
-    const criteria = ["Clarity", "Reasoning", "Completeness"] as const;
-    criteria.forEach((criterion) => {
-      const result = EvidenceQuote.parse({
-        quote: "Test quote",
-        supports: criterion,
-        valence: "positive",
-      });
-      expect(result.supports).toBe(criterion);
-    });
-  });
-
-  it("accepts both valence types", () => {
-    const valences = ["positive", "negative"] as const;
-    valences.forEach((valence) => {
-      const result = EvidenceQuote.parse({
-        quote: "Test quote",
-        supports: "Clarity",
-        valence: valence,
-      });
-      expect(result.valence).toBe(valence);
-    });
-  });
-});
-
-describe("CriterionScore schema", () => {
-  it("parses valid criterion score", () => {
-    const validData = {
-      name: "Clarity",
-      score: 4,
-      notes:
-        "The document is generally clear. However, the third section uses ambiguous terminology.",
-      evidence_quotes: [
-        "The introduction clearly states the main argument",
-        "Section 3 uses undefined jargon",
-      ],
-    };
-    const result = CriterionScore.parse(validData);
-    expect(result).toEqual(validData);
   });
 
   it("rejects score outside 1-5 range", () => {
     expect(() =>
-      CriterionScore.parse({
-        name: "Clarity",
+      ActionItemReview.parse({
+        ...validReview,
         score: 6,
-        notes: "Some notes",
-        evidence_quotes: ["quote1"],
       })
     ).toThrow();
 
     expect(() =>
-      CriterionScore.parse({
-        name: "Clarity",
+      ActionItemReview.parse({
+        ...validReview,
         score: 0,
-        notes: "Some notes",
-        evidence_quotes: ["quote1"],
       })
     ).toThrow();
   });
 
   it("rejects non-integer score", () => {
     expect(() =>
-      CriterionScore.parse({
-        name: "Clarity",
+      ActionItemReview.parse({
+        ...validReview,
         score: 3.5,
-        notes: "Some notes",
-        evidence_quotes: ["quote1"],
       })
     ).toThrow();
   });
 
-  it("rejects empty evidence_quotes array", () => {
-    expect(() =>
-      CriterionScore.parse({
-        name: "Clarity",
-        score: 3,
-        notes: "Some notes",
-        evidence_quotes: [],
-      })
-    ).toThrow();
-  });
-
-  it("rejects more than 3 evidence quotes", () => {
-    expect(() =>
-      CriterionScore.parse({
-        name: "Clarity",
-        score: 3,
-        notes: "Some notes",
-        evidence_quotes: ["q1", "q2", "q3", "q4"],
-      })
-    ).toThrow();
-  });
-
-  it("accepts all three criteria names", () => {
-    const names = ["Clarity", "Reasoning", "Completeness"] as const;
-    names.forEach((name) => {
-      const result = CriterionScore.parse({
-        name,
-        score: 3,
-        notes: "Notes",
-        evidence_quotes: ["quote"],
-      });
-      expect(result.name).toBe(name);
-    });
-  });
-
-  it("accepts 1-3 evidence quotes", () => {
-    for (let count = 1; count <= 3; count++) {
-      const quotes = Array(count).fill("quote");
-      const result = CriterionScore.parse({
-        name: "Clarity",
-        score: 3,
-        notes: "Notes",
-        evidence_quotes: quotes,
-      });
-      expect(result.evidence_quotes).toHaveLength(count);
+  it("accepts scores 1 through 5", () => {
+    for (let score = 1; score <= 5; score++) {
+      const result = ActionItemReview.parse({ ...validReview, score });
+      expect(result.score).toBe(score);
     }
   });
 });
 
 describe("JudgeOutput schema", () => {
   const validJudgeOutput = {
+    proposal_id: 42,
+    evaluator_id: 1,
+    evaluator_name: "The Professor",
+    items: [
+      {
+        action_item_id: 1,
+        comment: "Strong framework with clear quantitative targets and phased implementation.",
+        score: 5,
+      },
+      {
+        action_item_id: 2,
+        comment: "Faculty development plan is solid but lacks detail on compliance tracking.",
+        score: 4,
+      },
+      {
+        action_item_id: 3,
+        comment: "Pilot design is reasonable. Consider adding control group metrics.",
+        score: 4,
+      },
+    ],
     overall_score: 4,
-    confidence: 0.85,
-    rationale:
-      "The document presents a clear and well-structured argument with strong evidence. The logical flow is excellent and the examples are relevant.",
-    criteria: [
-      {
-        name: "Clarity" as const,
-        score: 4,
-        notes: "Clear and well-organized presentation.",
-        evidence_quotes: ["The introduction states the thesis clearly"],
-      },
-      {
-        name: "Reasoning" as const,
-        score: 4,
-        notes: "Strong logical chain with good support.",
-        evidence_quotes: ["Evidence is provided for each claim"],
-      },
-      {
-        name: "Completeness" as const,
-        score: 3,
-        notes: "Covers main points but misses some edge cases.",
-        evidence_quotes: ["Most aspects are addressed"],
-      },
-    ],
-    key_evidence: [
-      {
-        quote: "Strong opening statement",
-        supports: "Clarity" as const,
-        valence: "positive" as const,
-      },
-      {
-        quote: "Well-supported conclusion",
-        supports: "Reasoning" as const,
-        valence: "positive" as const,
-      },
-    ],
-    strengths: ["Clear writing", "Logical structure"],
-    improvements: ["Add more examples", "Expand on methodology"],
   };
 
   it("parses valid judge output", () => {
     const result = JudgeOutput.parse(validJudgeOutput);
     expect(result).toEqual(validJudgeOutput);
+  });
+
+  it("rejects missing proposal_id", () => {
+    const { proposal_id: _, ...rest } = validJudgeOutput;
+    expect(() => JudgeOutput.parse(rest)).toThrow();
+  });
+
+  it("rejects missing evaluator_id", () => {
+    const { evaluator_id: _, ...rest } = validJudgeOutput;
+    expect(() => JudgeOutput.parse(rest)).toThrow();
+  });
+
+  it("rejects missing evaluator_name", () => {
+    const { evaluator_name: _, ...rest } = validJudgeOutput;
+    expect(() => JudgeOutput.parse(rest)).toThrow();
+  });
+
+  it("rejects empty items array", () => {
+    expect(() =>
+      JudgeOutput.parse({
+        ...validJudgeOutput,
+        items: [],
+      })
+    ).toThrow();
   });
 
   it("rejects overall_score outside 1-5", () => {
@@ -216,132 +134,58 @@ describe("JudgeOutput schema", () => {
         overall_score: 6,
       })
     ).toThrow();
-  });
-
-  it("rejects confidence outside 0-1", () => {
-    expect(() =>
-      JudgeOutput.parse({
-        ...validJudgeOutput,
-        confidence: 1.5,
-      })
-    ).toThrow();
 
     expect(() =>
       JudgeOutput.parse({
         ...validJudgeOutput,
-        confidence: -0.1,
+        overall_score: 0,
       })
     ).toThrow();
   });
 
-  it("rejects wrong number of criteria", () => {
+  it("rejects non-integer overall_score", () => {
     expect(() =>
       JudgeOutput.parse({
         ...validJudgeOutput,
-        criteria: [validJudgeOutput.criteria[0], validJudgeOutput.criteria[1]],
-      })
-    ).toThrow();
-
-    expect(() =>
-      JudgeOutput.parse({
-        ...validJudgeOutput,
-        criteria: [...validJudgeOutput.criteria, validJudgeOutput.criteria[0]],
+        overall_score: 3.5,
       })
     ).toThrow();
   });
 
-  it("rejects less than 2 key_evidence", () => {
+  it("rejects non-integer proposal_id", () => {
     expect(() =>
       JudgeOutput.parse({
         ...validJudgeOutput,
-        key_evidence: [validJudgeOutput.key_evidence[0]],
+        proposal_id: 1.5,
       })
     ).toThrow();
   });
 
-  it("rejects more than 6 key_evidence", () => {
-    const evidence = Array(7).fill(validJudgeOutput.key_evidence[0]);
-    expect(() =>
-      JudgeOutput.parse({
-        ...validJudgeOutput,
-        key_evidence: evidence,
-      })
-    ).toThrow();
+  it("accepts single item", () => {
+    const result = JudgeOutput.parse({
+      ...validJudgeOutput,
+      items: [validJudgeOutput.items[0]],
+    });
+    expect(result.items).toHaveLength(1);
   });
 
-  it("rejects empty strengths array", () => {
-    expect(() =>
-      JudgeOutput.parse({
+  it("accepts overall_score values 1 through 5", () => {
+    for (let score = 1; score <= 5; score++) {
+      const result = JudgeOutput.parse({
         ...validJudgeOutput,
-        strengths: [],
-      })
-    ).toThrow();
-  });
-
-  it("rejects more than 3 strengths", () => {
-    expect(() =>
-      JudgeOutput.parse({
-        ...validJudgeOutput,
-        strengths: ["s1", "s2", "s3", "s4"],
-      })
-    ).toThrow();
-  });
-
-  it("rejects empty improvements array", () => {
-    expect(() =>
-      JudgeOutput.parse({
-        ...validJudgeOutput,
-        improvements: [],
-      })
-    ).toThrow();
-  });
-
-  it("rejects more than 3 improvements", () => {
-    expect(() =>
-      JudgeOutput.parse({
-        ...validJudgeOutput,
-        improvements: ["i1", "i2", "i3", "i4"],
-      })
-    ).toThrow();
+        overall_score: score,
+      });
+      expect(result.overall_score).toBe(score);
+    }
   });
 
   it("rejects missing required fields", () => {
-    const fields = [
-      "overall_score",
-      "confidence",
-      "rationale",
-      "criteria",
-      "key_evidence",
-      "strengths",
-      "improvements",
-    ];
+    const fields = ["proposal_id", "evaluator_id", "evaluator_name", "items", "overall_score"];
 
-    fields.forEach((field) => {
+    for (const field of fields) {
       const incomplete = { ...validJudgeOutput };
       delete incomplete[field as keyof typeof validJudgeOutput];
       expect(() => JudgeOutput.parse(incomplete)).toThrow();
-    });
-  });
-
-  it("accepts confidence values 0, 0.5, 1.0", () => {
-    const confidences = [0, 0.3, 0.6, 0.9, 1];
-    confidences.forEach((conf) => {
-      const result = JudgeOutput.parse({
-        ...validJudgeOutput,
-        confidence: conf,
-      });
-      expect(result.confidence).toBe(conf);
-    });
-  });
-
-  it("accepts 2-6 key_evidence", () => {
-    for (let count = 2; count <= 6; count++) {
-      const evidence = Array(count).fill(validJudgeOutput.key_evidence[0]);
-      const result = JudgeOutput.parse({
-        ...validJudgeOutput,
-        key_evidence: evidence,
-      });
-      expect(result.key_evidence).toHaveLength(count);
     }
   });
 });
@@ -350,7 +194,7 @@ describe("ConsensusOutput schema", () => {
   const validConsensusOutput = {
     final_score: 4,
     rationale:
-      "The judges converge on a score of 4 based on strong clarity and reasoning, with minor gaps in completeness.",
+      "The judges converge on a score of 4 based on strong action items with clear targets, with minor gaps in faculty compliance tracking.",
     agreement: {
       scores: {
         rater_a: 4,
@@ -360,31 +204,14 @@ describe("ConsensusOutput schema", () => {
       mean_score: 3.7,
       median_score: 4,
       spread: 1,
-      agreement_level: "moderate" as const,
+      agreement_level: "strong" as const,
       disagreement_analysis:
-        "Rater C (The Practitioner) scored one point lower due to concern about missing actionable guidance.",
+        "Rater C scored one point lower due to concern about missing interim milestone data.",
     },
-    criteria: [
-      {
-        name: "Clarity" as const,
-        score: 4,
-        notes: "Strong consensus on clarity.",
-        evidence_quotes: ["Clear structure"],
-      },
-      {
-        name: "Reasoning" as const,
-        score: 4,
-        notes: "Well-reasoned argument.",
-        evidence_quotes: ["Good evidence"],
-      },
-      {
-        name: "Completeness" as const,
-        score: 3,
-        notes: "Adequate coverage with minor gaps.",
-        evidence_quotes: ["Most areas covered"],
-      },
+    improvements: [
+      "Add interim milestone checkpoints at 6-month intervals",
+      "Clarify faculty compliance tracking mechanisms",
     ],
-    improvements: ["Add more practical examples", "Clarify methodology"],
   };
 
   it("parses valid consensus output", () => {
@@ -397,6 +224,37 @@ describe("ConsensusOutput schema", () => {
       ConsensusOutput.parse({
         ...validConsensusOutput,
         final_score: 6,
+      })
+    ).toThrow();
+  });
+
+  it("accepts null scores for missing judges", () => {
+    const result = ConsensusOutput.parse({
+      ...validConsensusOutput,
+      agreement: {
+        ...validConsensusOutput.agreement,
+        scores: {
+          rater_a: 4,
+          rater_b: null,
+          rater_c: 3,
+        },
+      },
+    });
+    expect(result.agreement.scores.rater_b).toBeNull();
+  });
+
+  it("rejects score of 0 (sentinel value)", () => {
+    expect(() =>
+      ConsensusOutput.parse({
+        ...validConsensusOutput,
+        agreement: {
+          ...validConsensusOutput.agreement,
+          scores: {
+            rater_a: 0,
+            rater_b: 4,
+            rater_c: 3,
+          },
+        },
       })
     ).toThrow();
   });
@@ -443,7 +301,7 @@ describe("ConsensusOutput schema", () => {
 
   it("accepts all agreement_level values", () => {
     const levels = ["strong", "moderate", "weak"] as const;
-    levels.forEach((level) => {
+    for (const level of levels) {
       const result = ConsensusOutput.parse({
         ...validConsensusOutput,
         agreement: {
@@ -452,16 +310,7 @@ describe("ConsensusOutput schema", () => {
         },
       });
       expect(result.agreement.agreement_level).toBe(level);
-    });
-  });
-
-  it("rejects wrong number of criteria", () => {
-    expect(() =>
-      ConsensusOutput.parse({
-        ...validConsensusOutput,
-        criteria: [validConsensusOutput.criteria[0]],
-      })
-    ).toThrow();
+    }
   });
 
   it("rejects empty improvements", () => {
@@ -494,12 +343,12 @@ describe("ConsensusOutput schema", () => {
   });
 
   it("rejects missing required fields", () => {
-    const fields = ["final_score", "rationale", "agreement", "criteria", "improvements"];
+    const fields = ["final_score", "rationale", "agreement", "improvements"];
 
-    fields.forEach((field) => {
+    for (const field of fields) {
       const incomplete = { ...validConsensusOutput };
       delete incomplete[field as keyof typeof validConsensusOutput];
       expect(() => ConsensusOutput.parse(incomplete)).toThrow();
-    });
+    }
   });
 });

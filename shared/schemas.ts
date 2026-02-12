@@ -1,67 +1,23 @@
 import { z } from "zod";
 
 /**
- * EvidenceQuote schema - A direct quote from the document with supporting information
+ * ActionItemReview schema - Evaluation of a single action item within a proposal
  */
-export const EvidenceQuote = z.object({
-  quote: z.string().describe("Direct quote from the document (15-50 words)"),
-  supports: z
-    .enum(["Clarity", "Reasoning", "Completeness"])
-    .describe("Which criterion this evidence supports or undermines"),
-  valence: z
-    .enum(["positive", "negative"])
-    .describe("Whether this evidence is a strength or weakness"),
-});
-
-/**
- * CriterionScore schema - Score for a single rubric criterion
- */
-export const CriterionScore = z.object({
-  name: z.enum(["Clarity", "Reasoning", "Completeness"]).describe("Rubric criterion name"),
+export const ActionItemReview = z.object({
+  action_item_id: z.number().int().describe("Stable ID of the action item being reviewed"),
+  comment: z.string().describe("Brief, constructive feedback (1-3 sentences)"),
   score: z.number().int().min(1).max(5).describe("Score from 1 (poor) to 5 (excellent)"),
-  notes: z.string().describe("2-3 sentence explanation for this criterion score"),
-  evidence_quotes: z
-    .array(z.string())
-    .min(1)
-    .max(3)
-    .describe("1-3 direct quotes from the document supporting this score"),
 });
 
 /**
- * JudgeOutput schema - Complete evaluation from a single judge
+ * JudgeOutput schema - Complete evaluation from a single judge (log_review format)
  */
 export const JudgeOutput = z.object({
-  overall_score: z
-    .number()
-    .int()
-    .min(1)
-    .max(5)
-    .describe("Holistic score from 1 to 5, not a simple average of criteria"),
-  confidence: z
-    .number()
-    .min(0)
-    .max(1)
-    .describe(
-      "0.9 = clear mapping to rubric anchors; 0.6 = borderline between anchors; 0.3 = missing info or ambiguous document"
-    ),
-  rationale: z
-    .string()
-    .describe("3-5 sentence overall rationale grounded in specific document evidence"),
-  criteria: z
-    .array(CriterionScore)
-    .length(3)
-    .describe("Scores for each of the three rubric criteria"),
-  key_evidence: z
-    .array(EvidenceQuote)
-    .min(2)
-    .max(6)
-    .describe("Most important evidence quotes from the document"),
-  strengths: z.array(z.string()).min(1).max(3).describe("Key strengths of the document"),
-  improvements: z
-    .array(z.string())
-    .min(1)
-    .max(3)
-    .describe("Specific, actionable suggestions for improvement"),
+  proposal_id: z.number().int().describe("Proposal identifier from the current request"),
+  evaluator_id: z.number().int().describe("Persona ID of the evaluator"),
+  evaluator_name: z.string().describe("Persona name of the evaluator"),
+  items: z.array(ActionItemReview).min(1).describe("One review per action item"),
+  overall_score: z.number().int().min(1).max(5).describe("Overall assessment score 1-5"),
 });
 
 /**
@@ -81,9 +37,27 @@ export const ConsensusOutput = z.object({
     ),
   agreement: z.object({
     scores: z.object({
-      rater_a: z.number().int().min(1).max(5).describe("Score from Rater A (The Professor)"),
-      rater_b: z.number().int().min(1).max(5).describe("Score from Rater B (The Editor)"),
-      rater_c: z.number().int().min(1).max(5).describe("Score from Rater C (The Practitioner)"),
+      rater_a: z
+        .number()
+        .int()
+        .min(1)
+        .max(5)
+        .nullable()
+        .describe("Score from Rater A (null if judge failed)"),
+      rater_b: z
+        .number()
+        .int()
+        .min(1)
+        .max(5)
+        .nullable()
+        .describe("Score from Rater B (null if judge failed)"),
+      rater_c: z
+        .number()
+        .int()
+        .min(1)
+        .max(5)
+        .nullable()
+        .describe("Score from Rater C (null if judge failed)"),
     }),
     mean_score: z
       .number()
@@ -101,7 +75,6 @@ export const ConsensusOutput = z.object({
         "Why judges differed, referencing their calibration perspectives and specific evidence they cited"
       ),
   }),
-  criteria: z.array(CriterionScore).length(3).describe("Final reconciled scores per criterion"),
   improvements: z
     .array(z.string())
     .min(1)
@@ -112,5 +85,6 @@ export const ConsensusOutput = z.object({
 /**
  * Inferred types from Zod schemas
  */
+export type ActionItemReviewType = z.infer<typeof ActionItemReview>;
 export type JudgeOutputType = z.infer<typeof JudgeOutput>;
 export type ConsensusOutputType = z.infer<typeof ConsensusOutput>;

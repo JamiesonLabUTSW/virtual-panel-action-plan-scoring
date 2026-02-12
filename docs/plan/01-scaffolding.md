@@ -87,25 +87,22 @@ while the other takes 1.4 (client) + 1.5 (env). Then 1.6 is a joint integration 
 
 `shared/schemas.ts` — Zod schemas exactly as specified:
 
-- `EvidenceQuote`: `quote` (string), `supports` (enum: Clarity/Reasoning/Completeness), `valence`
-  (enum: positive/negative)
-- `CriterionScore`: `name` (enum), `score` (1-5 int), `notes` (string), `evidence_quotes` (array of
-  strings, min 1, max 3)
-- `JudgeOutput`: `overall_score` (1-5 int), `confidence` (0-1 number), `rationale` (string),
-  `criteria` (array of 3 CriterionScore), `key_evidence` (array of 2-6 EvidenceQuote), `strengths`
-  (1-3 strings), `improvements` (1-3 strings)
+- `ActionItemReview`: `action_item_id` (int), `comment` (string), `score` (1-5 int)
+- `JudgeOutput`: `proposal_id` (int), `evaluator_id` (int), `evaluator_name` (string), `items`
+  (array of ActionItemReview, min 1), `overall_score` (1-5 int)
 - `ConsensusOutput`: `final_score` (1-5 int), `rationale` (string), `agreement` object (scores per
   rater, mean_score, median_score, spread 0-4, agreement_level enum, disagreement_analysis string),
-  `criteria` (array of 3 CriterionScore), `improvements` (1-5 strings)
-- Export inferred types: `JudgeOutputType`, `ConsensusOutputType`
+  `improvements` (1-5 strings)
+- Export inferred types: `ActionItemReviewType`, `JudgeOutputType`, `ConsensusOutputType`
 
 `shared/types.ts` — TypeScript types:
 
 - `Phase` union type: `"idle" | "rater_a" | "rater_b" | "rater_c" | "consensus" | "done" | "error"`
 - `JudgeState` interface: `status`, `label`, optional `result` (JudgeOutputType), `error`,
   `latencyMs`
-- `GradingState` interface: `phase`, optional `document` (text, title, wasTruncated), `judges`
-  object (rater_a/b/c as optional JudgeState), optional `consensus`, `error`, `wasTruncated`
+- `GradingState` interface: `phase`, optional `proposal` (id, title, actionItems, wasTruncated),
+  `judges` object (rater_a/b/c as optional JudgeState), optional `consensus`, `error`,
+  `wasTruncated`
 - `INITIAL_GRADING_STATE` constant: `{ phase: "idle", judges: {} }`
 
 `shared/index.ts` — barrel export of all schemas, types, and constants.

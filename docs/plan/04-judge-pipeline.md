@@ -48,51 +48,52 @@ Phase 5 utility work (5.8) or Phase 6 authoring while 4.5–4.7 are completed.
 
 ### 4.1 — Create Rubric Module
 
-**Description:** Create the shared rubric text constant used by all judge chains and the consensus
-arbiter.
+**Description:** Create the rubric module that loads rubric text from
+`server/src/resources/rubric.txt` at runtime.
 
 **Changes:**
 
 Create `server/src/grading/rubric.ts`:
 
-- Export `RUBRIC_TEXT` as a string constant containing the rubric table from SPEC §4.3
-- Three criteria: Clarity (1-5), Reasoning (1-5), Completeness (1-5)
-- Include the anchor descriptions for scores 1, 3, and 5
-- Include the note that `overall_score` is holistic, not an average
+- Export `RUBRIC_TEXT` (loaded from `server/src/resources/rubric.txt`)
+- 1-5 scoring scale with 5 anchor descriptions (Poor, Weak, Adequate, Strong, Excellent)
+- Include guidance on applying scale to medical action items
 
 **Acceptance criteria:**
 
-- `RUBRIC_TEXT` is a well-formatted string suitable for prompt injection
-- All three criteria and their score anchors are present
-- The holistic scoring note is included
+- `RUBRIC_TEXT` loads successfully from resource file at runtime
+- All 5 anchor descriptions are present
+- Formatting is suitable for inclusion in LLM prompts
 
 **Code quality:**
 
-- Template literal with clear formatting (the LLM reads this, so readability matters)
-- No dynamic content — this is a pure constant
+- File loading is synchronous (during module initialization, not per-request)
+- Error handling if resource file is missing
+- No dynamic content — rubric is static per deployment
 
 ---
 
 ### 4.2 — Create Placeholder Few-Shot Sets
 
-**Description:** Create temporary calibration examples (1-2 per rater) so the judge pipeline can be
-tested before the full 15-example set is written in Phase 6.
+**Description:** Create temporary calibration examples (1-2 per rater) in log_review format so the
+judge pipeline can be tested before the full 15-example set is formatted in Phase 6.
 
 **Changes:**
 
 Create `server/src/grading/few-shot-sets.ts`:
 
 - Export `RATER_A_EXAMPLES`, `RATER_B_EXAMPLES`, `RATER_C_EXAMPLES` as formatted strings
-- Each contains 1-2 example `(document_excerpt, JudgeOutput JSON)` pairs
-- Rater A examples emphasize structure/logic concerns
-- Rater B examples emphasize clarity/prose concerns
-- Rater C examples emphasize actionability/evidence concerns
-- Follow the example format from SPEC §8.2
+- Each contains 1-2 example `(action_item_text, log_review JSON)` pairs
+- Rater A examples emphasize structure/metrics concerns
+- Rater B examples emphasize feasibility/clarity concerns
+- Rater C examples emphasize actionability/data concerns
+- Follow the log_review format: proposal_id, evaluator_id, evaluator_name, items array,
+  overall_score
 
 **Acceptance criteria:**
 
-- Each rater has at least 1 complete example with all `JudgeOutput` fields
-- Examples include `evidence_quotes` per criterion
+- Each rater has at least 1 complete example with all `log_review` fields
+- items array contains per-action-item scores and comments
 - Each rater's examples reflect their persona's tendencies
 - Placeholder examples are clearly marked with a
   `// TODO: Replace with full 5-example sets in Phase 6` comment
@@ -100,14 +101,14 @@ Create `server/src/grading/few-shot-sets.ts`:
 **Code quality:**
 
 - Examples are formatted as readable strings (not minified JSON)
-- Evidence quotes are realistic (could plausibly come from the document excerpt)
+- Comments reflect each rater's voice and evaluation philosophy
 
 ---
 
 ### 4.3 — Implement Judge Chain
 
-**Description:** Create the LangChain judge chain that takes document text, rubric, and few-shot
-examples, and returns a validated `JudgeOutput`.
+**Description:** Create the LangChain judge chain that takes proposal content, rubric, and few-shot
+examples, and returns a validated `JudgeOutput` in log_review format.
 
 **Changes:**
 
@@ -115,30 +116,27 @@ Create `server/src/grading/judge-chain.ts`:
 
 - Import the shared `llm` instance from `llm.ts`
 - Import `invokeWithStructuredOutput` from `structured-output.ts`
-- Import `JudgeOutput` schema from `@shared/schemas`
+- Import `JudgeOutput` schema from `@shared/schemas` (log_review format)
 - Create `ChatPromptTemplate` with:
-  - System message: judge system prompt from SPEC §4.6 (evaluator rules, confidence scale, injection
-    defense)
-  - User message: rubric text, calibration examples, document in `<document>` tags
-- Export `runJudge({ documentText, rubricText, fewShotExamples })` function
+  - System message: judge system prompt adapted for action item evaluation
+  - User message: rubric text, calibration examples, proposal action items
+- Export `runJudge({ proposal, rubricText, fewShotExamples })` function
 - The function constructs the prompt, calls `invokeWithStructuredOutput`, and returns
   `{ result: JudgeOutputType, tier: number }`
 - 30-second timeout per call (using `AbortController` or LangChain timeout config)
 
 **Acceptance criteria:**
 
-- `runJudge` with a sample document returns a valid `JudgeOutputType`
+- `runJudge` with a proposal returns a valid `JudgeOutputType` in log_review format
 - `overall_score` is 1-5 integer
-- `confidence` is between 0 and 1
-- `criteria` has exactly 3 items (Clarity, Reasoning, Completeness)
-- `evidence_quotes` in each criterion contain text that appears in the input document
-- `key_evidence` items have valid `supports` and `valence` fields
+- `items` array has one entry per action item with action_item_id, comment, and score
+- Each item score is 1-5
 - A 30-second timeout is enforced; exceeding it throws an error (not a hang)
 
 **Code quality:**
 
-- The judge system prompt matches SPEC §4.6 exactly (copy-paste, then verify)
-- Document text is wrapped in `<document>` tags per SPEC §10
+- The judge system prompt is tailored to medical action item evaluation
+- Proposal content is presented as structured action items (not wrapped in tags)
 - No `temperature` or `maxTokens` in the chain configuration
 - The prompt template uses LangChain's `{variable}` interpolation, not string concatenation
 
@@ -157,10 +155,9 @@ Create `server/src/grading/consensus-chain.ts`:
 - Import `invokeWithStructuredOutput` from `structured-output.ts`
 - Import `ConsensusOutput` schema from `@shared/schemas`
 - Create `ChatPromptTemplate` with:
-  - System message: consensus arbiter prompt from SPEC §4.6 (arbiter rules, score constraint, no new
-    document analysis)
-  - User message: rubric text + formatted judge outputs (per SPEC §4.6 consensus user prompt
-    template)
+  - System message: consensus arbiter prompt (arbiter rules, score constraint, no new proposal
+    analysis)
+  - User message: rubric text + formatted judge outputs
 - Export `runConsensus({ judgeResults, rubricText, missingJudgeCount })` function
 - The function formats judge results into the prompt template, calls `invokeWithStructuredOutput`,
   and returns the consensus
@@ -175,18 +172,14 @@ Create `server/src/grading/consensus-chain.ts`:
 - `agreement.median_score` is correct
 - `agreement.spread` equals `max - min` of judge scores
 - `agreement.agreement_level` matches the spread rules: 0-1 = strong, 2 = moderate, 3-4 = weak
-- `rationale` references judge perspectives, not the original document
+- `rationale` references judge perspectives, not the original proposal
 - With only 2 judges, the consensus acknowledges the missing perspective
 
 **Code quality:**
 
-- `mean_score`, `median_score`, `spread`, and `agreement_level` should be computed deterministically
-  in code after the LLM call, NOT trusted from the LLM output — the LLM provides qualitative
-  synthesis, code provides the math
-- Alternatively, if the full output is LLM-generated, add post-processing validation that corrects
-  the deterministic fields
-- The consensus prompt matches SPEC §4.6 exactly
-- Judge output formatting in the user prompt includes rater labels and scores for quick reference
+- `mean_score`, `median_score`, `spread`, and `agreement_level` computed deterministically in code
+  after the LLM call, NOT trusted from LLM output
+- Judge output formatting in user prompt includes rater labels and scores for quick reference
 
 ---
 
@@ -200,12 +193,12 @@ handles failures, and invokes the consensus arbiter.
 Create `server/src/grading/orchestrator.ts`:
 
 - Import `runJudge`, `runConsensus`, few-shot sets, `RUBRIC_TEXT`, shared types
-- Export `runGradingPipeline({ documentText, documentTitle, emitState })` following SPEC §5.3
+- Export `runGradingPipeline({ proposal, emitState })` with proposal-oriented input
 - Pipeline steps:
-  1. Validate document size (`MAX_DOC_CHARS`), truncate if needed, set `wasTruncated`
+  1. Validate proposal size, set `wasTruncated` if needed
   2. For each judge (rater_a, rater_b, rater_c) sequentially:
      - Set judge status to `running`, emit state with current phase
-     - Call `runJudge` with the rater's few-shot examples
+     - Call `runJudge` with the proposal and rater's few-shot examples
      - On success: set status to `done`, record `result` and `latencyMs`, log metrics, emit state
      - On failure: set status to `error`, record error message and `latencyMs`, log error, emit
        state, continue to next judge
@@ -224,14 +217,14 @@ Create `server/src/grading/orchestrator.ts`:
   ... → `consensus` → `done`
 - Each state emission contains the full cumulative judges object (not just deltas)
 - `latencyMs` is recorded for every judge call (including failures)
-- Stdout logs per SPEC §12: `[judge:rater_a] score=X confidence=Y latency=Zms`,
+- Stdout logs: `[judge:rater_a] score=X latency=Zms`,
   `[consensus] final_score=X agreement=Y spread=Z`
 
 **Code quality:**
 
 - Sequential execution is explicit (for loop with await, not Promise.all)
 - State is built up immutably: each emission creates a new judges object
-- Document text is never logged
+- Proposal content is never logged
 - The `emitState` callback type matches `(state: Partial<GradingState>) => void`
 
 ---
@@ -239,7 +232,7 @@ Create `server/src/grading/orchestrator.ts`:
 ### 4.6 — Create CopilotKit gradeDocument Agent
 
 **Description:** Register the grading pipeline as a CopilotKit agent (custom `AbstractAgent`
-subclass) that the frontend can trigger with explicit parameters.
+subclass) that the frontend can trigger with proposal parameters.
 
 **Changes:**
 
@@ -247,7 +240,7 @@ Create `server/src/agents/grade-document-agent.ts`:
 
 - Export `GradeDocumentAgent` class extending `AbstractAgent` following SPEC §5.2
 - Name: `"gradeDocument"`
-- Parameters: `documentText` (string, required), `documentTitle` (string, optional)
+- Parameters: proposal-oriented input (proposal object with id, title, action items)
 - The `run()` method calls `runGradingPipeline`, converting `emitState` callbacks to
   `STATE_SNAPSHOT` events in the Observable
 
@@ -260,7 +253,7 @@ Update `server/src/index.ts`:
 **Acceptance criteria:**
 
 - The agent is registered and discoverable by CopilotKit
-- Triggering the agent via `useCoAgent.run()` with document state runs the full pipeline
+- Triggering the agent with proposal input runs the full pipeline
 - State updates are emitted to the frontend via AG-UI
 - The agent emits `STATE_SNAPSHOT` events and completes with `RUN_FINISHED`
 
@@ -268,8 +261,7 @@ Update `server/src/index.ts`:
 
 - Agent extends `AbstractAgent` with properly typed `run()` method returning `Observable<BaseEvent>`
 - The `run()` method is a thin wrapper — all logic lives in the orchestrator
-- Error handling: if the pipeline throws, the agent should emit `RUN_ERROR` and complete the
-  Observable
+- Error handling: if the pipeline throws, the agent emits `RUN_ERROR` and completes
 
 ---
 
@@ -283,15 +275,16 @@ updates.
 Update `client/src/App.tsx` or create `client/src/components/GradingView.tsx`:
 
 - Use `useCoAgent<GradingState>({ name: "gradeDocument", initialState: INITIAL_GRADING_STATE })`
-- Add a simple document input (textarea + submit button — not the full UI, just enough to test)
-- On submit: call `run({ documentText: text, documentTitle: "Test" })`
+- Add a simple proposal input (action item list + submit button — not the full UI, just enough to
+  test)
+- On submit: call `run(proposal)` with the structured proposal
 - Display the raw `GradingState` as formatted JSON (or a simple status display showing phase + judge
   statuses)
 - This is a functional test harness, not the final UI (Phase 5)
 
 **Acceptance criteria:**
 
-- Entering text and clicking submit triggers the grading pipeline
+- Entering proposal and clicking submit triggers the grading pipeline
 - The UI updates as each judge starts and completes (visible phase changes)
 - Judge results are visible in the state display
 - Consensus result appears after all judges

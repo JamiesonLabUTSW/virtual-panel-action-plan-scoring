@@ -15,9 +15,10 @@ features → deploy). Before starting work, read:
 ## Key References
 
 - `SPEC.md` — Complete specification (source of truth). Key sections:
-  - §4.4-4.5: Zod schemas (JudgeOutput, ConsensusOutput) — **copy exactly, do not refactor or
-    rename**
-  - §4.6: Prompt templates (judge system/user, consensus system/user) — **copy exactly**
+  - §4.4-4.5: Zod schemas (ActionItemReview, JudgeOutput, ConsensusOutput) — **copy exactly, do not
+    refactor or rename**
+  - §4.6: Prompt templates (judge system prompt loaded from `server/src/resources/rubric.txt`, judge
+    user, consensus system/user) — **copy exactly**
   - §5.1-5.4: Backend implementation with code samples
   - §7.1-7.5: Frontend implementation with code samples
   - §9.1-9.4: Project layout, path aliases, tsup config, Dockerfile
@@ -29,8 +30,8 @@ features → deploy). Before starting work, read:
 
 Multi-Judge LLM Grading Demo — a single-container Hugging Face Space (Docker SDK, port 7860) that
 runs a calibrated LLM-as-a-judge panel. Three AI judges (each calibrated with a different human
-rater's few-shot examples) evaluate a document against a shared rubric, then a consensus arbiter
-reconciles their scores. The full specification lives in `SPEC.md`.
+rater's few-shot examples) evaluate medical residency program action items against a shared rubric,
+then a consensus arbiter reconciles their scores. The full specification lives in `SPEC.md`.
 
 ## Stack
 
@@ -58,6 +59,10 @@ npm run dev --workspace=@grading/client  # Vite dev server
 
 # Testing
 npm test --workspace=@shared/types    # Run tests (vitest configured in each package)
+
+# Integration tests (gated by env var, require real Azure credentials)
+./run-integration-tests.sh            # Loads .env, sets RUN_INTEGRATION_TESTS=true, runs gated tests
+# Use it.skipIf(!process.env.RUN_INTEGRATION_TESTS) to gate expensive API calls
 
 # Production build
 npm run build --workspace=@grading/client   # Vite build → client/dist
@@ -93,11 +98,10 @@ Azure OpenAI (gpt-5.1-codex-mini)
 **Key flows:**
 
 - Frontend triggers `gradeDocument` agent via `useAgent({ agentId }).agent.runAgent()` (not
-  `useCoAgent.run()` which is broken in v1.51) with explicit `documentText`/`documentTitle`
-  parameters
-- Judges execute sequentially (avoids Azure rate limits, enables progressive UI updates)
+  `useCoAgent.run()` which is broken in v1.51) with explicit proposal parameters
+- Judges execute in parallel (faster completion, progressive state emissions as each completes)
 - Each judge completion emits a `STATE_SNAPSHOT` to the frontend via AG-UI
-- Consensus arbiter receives only judge outputs (not the original document) and constrains final
+- Consensus arbiter receives only judge outputs (not the original proposal) and constrains final
   score to `[min, max]` of judge scores
 
 ## Project Layout
@@ -108,11 +112,18 @@ server/src/
   index.ts                    # Express setup, CopilotKit runtime mount
   agents/grade-document-agent.ts  # CopilotKit agent (AbstractAgent subclass)
   grading/
-    orchestrator.ts           # Sequential judge pipeline + state emission
+    orchestrator.ts           # Parallel judge pipeline + progressive state emission
     judge-chain.ts            # LangChain judge with 3-tier structured output fallback
     consensus-chain.ts        # LangChain consensus arbiter
     few-shot-sets.ts          # 15 calibration examples (5 per rater)
     rubric.ts                 # Shared rubric text
+  resources/
+    rubric.txt                # Evaluation rubric (system prompt)
+    action_item/              # 8 medical specialty action item documents
+    ratings/                  # 24 rater JSON files (8 per rater)
+      rater_a/
+      rater_b/
+      rater_c/
 client/src/
   App.tsx                     # CopilotKit provider
   components/
@@ -140,6 +151,31 @@ This is a reasoning model with non-standard parameter support:
 - Use `max_output_tokens` (Responses API) or `max_completion_tokens` (Chat Completions API)
 - `reasoning_effort` defaults to `none`; set explicitly if needed
 - Use `useResponsesApi: true` in LangChain's `ChatOpenAI` config
+- In LangChain 1.2.7+: `maxTokens` parameter works correctly; older versions may not expose it in
+  types. Use whichever parameter works with the installed LangChain version.
+
+**Azure Responses API (OpenAI SDK):**
+
+- gpt-5.1-codex-mini **does NOT support Chat Completions API** — use Responses API
+  (`client.responses.create()`)
+- Use standard `OpenAI` client (not `AzureOpenAI`) with Azure baseURL:
+  `https://${resource}.openai.azure.com/openai/v1/`
+- Parameters: `input` (user message), `instructions` (system prompt), `text.format` (replaces
+  `response_format`), `max_output_tokens` (replaces `max_completion_tokens`)
+- Response structure: `response.content[0].text` (not `choices[0].message.content`)
+- Usage tokens: `input_tokens`/`output_tokens` (not `prompt_tokens`/`completion_tokens`)
+
+## Library Version Notes
+
+**LangChain version mismatch:** SPEC.md references structured output parameters (e.g.,
+`maxOutputTokens`) that may not exist in older LangChain versions (0.5.x). If implementation
+diverges from spec, check if `@langchain/openai` is outdated before assuming spec is wrong. Current
+versions (@langchain/openai 1.2.7+, @langchain/core 1.1.22+, openai 6.x) support all documented
+parameters.
+
+**Core dependency versions:** @langchain/openai, @langchain/core, openai SDK, and zod should be kept
+near latest. Major version upgrades of these packages typically have no breaking changes for this
+project; verify with `npm run type-check && npm run test --workspace=@grading/server`.
 
 ## Azure OpenAI v1 Configuration
 
@@ -225,6 +261,15 @@ Each tier uses a different API mechanism (not prompt changes):
 `z.optional()`; use `z.nullable()` if a field can be null. Field order in schema matches SPEC
 exactly (becomes the documentation contract).
 
+**Responses API JSON schema strict mode requirements:**
+
+- JSON schema must include: `type: "object"`, `additionalProperties: false`, `properties` field,
+  `name` field
+- Use `zod-to-json-schema` with `{ target: "openApi3", $refStrategy: "none" }` to inline all
+  definitions
+- Validate with defensive checks before API call (add missing `type`/`additionalProperties` if
+  needed)
+
 ## Environment Variables
 
 | Variable                  | Required | Default | Purpose                  |
@@ -302,22 +347,33 @@ Client Vite proxy is pre-configured in `client/vite.config.ts`:
 
 Three raters with distinct calibration personas:
 
-- **Rater A "The Professor"** — strict on structure & logic, lenient on style
-- **Rater B "The Editor"** — strict on clarity & prose, lenient on depth
-- **Rater C "The Practitioner"** — strict on actionability & evidence, lenient on formality
+- **Rater A "The Professor"** — strict on structure, quantitative targets, and metric specificity
+- **Rater B "The Editor"** — generous on feasibility and clarity, focuses on achievability
+- **Rater C "The Practitioner"** — strict on actionability, data richness, and practical impact
 
-Shared rubric: Clarity (1-5), Reasoning (1-5), Completeness (1-5). `overall_score` is holistic, not
-an average.
+Shared rubric: 1-5 scale (Poor/Weak/Adequate/Strong/Excellent) loaded from
+`server/src/resources/rubric.txt`. `overall_score` is holistic, not an average of item scores.
 
-Consensus arbiter references judge rationales (not the document), outputs `agreement_level`
+Consensus arbiter references judge rationales (not the original proposal), outputs `agreement_level`
 (strong/moderate/weak), and deduplicates improvement suggestions.
 
 ## Error Handling Conventions
 
 - Single judge failure → continue grading with remaining judges, show error in UI
 - 2+ judge failures → throw error, require retry
-- Document text wrapped in `<document>` tags with injection defense in system prompt
-- Never log document content; log only per-run metrics (scores, latency, confidence)
+- Proposal content provided as structured action items; system prompt loaded from
+  `server/src/resources/rubric.txt` includes injection defense
+- Never log proposal content; log only per-run metrics (scores, latency)
+
+**Known Implementation Limitations:**
+
+- **Timeout handling:** Judge chain creates AbortController but signal is not yet passed to the API
+  (prepared for future SDK support). Consensus chain declares `timeoutMs` parameter but does not
+  implement timeout handling yet.
+- **Missing judge scores:** ConsensusOutput schema requires all three rater scores (min: 1, max: 5),
+  but implementation uses sentinel value (0) for missing judges, which violates schema constraint.
+  This is stored in-memory after validation but may cause issues if re-serialized or validated
+  downstream.
 
 ## Code Quality Tooling
 
@@ -339,6 +395,14 @@ related tests on staged files. Commits are blocked if any check fails.
 
 **Coverage thresholds:** 80% per workspace (lines, functions, branches, statements). Reports
 warnings but does NOT fail builds.
+
+**Testing library upgrades:** When upgrading @langchain/\*, openai, or zod to latest versions,
+follow this safe path:
+
+1. Update package.json versions and run `npm install --workspaces`
+2. Run `npm run type-check --workspace=@grading/server` to catch type errors
+3. Run `npm run test --workspace=@grading/server` to validate behavior
+4. If all pass, the upgrade is safe (this codebase has clean breaking-change tests)
 
 **Configuration patterns & gotchas:**
 
