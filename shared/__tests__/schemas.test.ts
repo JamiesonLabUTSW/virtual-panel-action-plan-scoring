@@ -228,6 +228,37 @@ describe("ConsensusOutput schema", () => {
     ).toThrow();
   });
 
+  it("accepts null scores for missing judges", () => {
+    const result = ConsensusOutput.parse({
+      ...validConsensusOutput,
+      agreement: {
+        ...validConsensusOutput.agreement,
+        scores: {
+          rater_a: 4,
+          rater_b: null,
+          rater_c: 3,
+        },
+      },
+    });
+    expect(result.agreement.scores.rater_b).toBeNull();
+  });
+
+  it("rejects score of 0 (sentinel value)", () => {
+    expect(() =>
+      ConsensusOutput.parse({
+        ...validConsensusOutput,
+        agreement: {
+          ...validConsensusOutput.agreement,
+          scores: {
+            rater_a: 0,
+            rater_b: 4,
+            rater_c: 3,
+          },
+        },
+      })
+    ).toThrow();
+  });
+
   it("rejects agreement scores outside 1-5", () => {
     expect(() =>
       ConsensusOutput.parse({

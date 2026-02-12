@@ -2,7 +2,6 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { CopilotRuntime, OpenAIAdapter, copilotRuntimeNodeHttpEndpoint } from "@copilotkit/runtime";
-import { INITIAL_GRADING_STATE } from "@shared/types";
 import express, { type Request, type Response } from "express";
 import OpenAI from "openai";
 import { DummyDefaultAgent } from "./agents/dummy-default-agent";
@@ -14,9 +13,6 @@ const app = express();
 
 // Environment variables
 const PORT = process.env.PORT ? Number.parseInt(process.env.PORT, 10) : 7860;
-const MAX_DOC_CHARS = process.env.MAX_DOC_CHARS
-  ? Number.parseInt(process.env.MAX_DOC_CHARS, 10)
-  : 20000;
 
 // Validate required environment variables (Issue #21)
 const envValidation = validateRequiredEnvVars();
@@ -55,10 +51,6 @@ const copilotRuntime = new CopilotRuntime({
     gradeDocument: new GradeDocumentAgent(),
   } as any,
 });
-
-// Verify @shared import works
-console.info("✓ @shared/types imported successfully");
-console.info("✓ INITIAL_GRADING_STATE:", INITIAL_GRADING_STATE);
 
 // Middleware
 app.use(express.json());
@@ -111,5 +103,4 @@ app.get("*", (_req: Request, res: Response) => {
 app.listen(PORT, "0.0.0.0", () => {
   console.info(`Server running on port ${PORT}`);
   console.info(`Azure OpenAI: https://${AZURE_OPENAI_RESOURCE}.openai.azure.com/openai/v1/`);
-  console.info(`MAX_DOC_CHARS: ${MAX_DOC_CHARS}`);
 });

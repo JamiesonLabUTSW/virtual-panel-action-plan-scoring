@@ -42,11 +42,15 @@ export class GradeDocumentAgent extends AbstractAgent {
             runId: input.runId,
           } as BaseEvent);
 
-          // Get proposal params from input state
-          const state = (input.state ?? {}) as Partial<GradingState>;
-          const proposalId = state.proposal?.id ?? 1;
-          const proposalTitle = state.proposal?.title;
-          const actionItems = state.proposal?.actionItems ?? [];
+          // Read proposal from input.state (AG-UI standard) or input root (CopilotKit workaround)
+          const rawState = input.state ?? {};
+          const state = rawState as Partial<GradingState>;
+          const inputAny = input as Record<string, unknown>;
+          const proposal =
+            state.proposal ?? (inputAny.proposal as GradingState["proposal"] | undefined);
+          const proposalId = proposal?.id ?? 1;
+          const proposalTitle = proposal?.title;
+          const actionItems = proposal?.actionItems ?? [];
 
           // Early validation: ensure actionItems is non-empty
           if (!actionItems || actionItems.length === 0) {
@@ -77,11 +81,14 @@ export class GradeDocumentAgent extends AbstractAgent {
             return;
           }
 
+          // State accumulator: deep-merge partial updates before emitting full snapshots
+          let currentState: Record<string, unknown> = { ...INITIAL_GRADING_STATE };
+
           // Emit initial idle state
           if (!cancelled) {
             subscriber.next({
               type: EventType.STATE_SNAPSHOT,
-              snapshot: INITIAL_GRADING_STATE,
+              snapshot: currentState,
             } as BaseEvent);
           }
 
@@ -91,10 +98,11 @@ export class GradeDocumentAgent extends AbstractAgent {
             proposalTitle,
             actionItems,
             emitState: (partialState) => {
+              currentState = { ...currentState, ...partialState };
               if (!cancelled) {
                 subscriber.next({
                   type: EventType.STATE_SNAPSHOT,
-                  snapshot: partialState,
+                  snapshot: currentState,
                 } as BaseEvent);
               }
             },

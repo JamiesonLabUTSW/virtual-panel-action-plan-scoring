@@ -37,9 +37,27 @@ export const ConsensusOutput = z.object({
     ),
   agreement: z.object({
     scores: z.object({
-      rater_a: z.number().int().min(1).max(5).describe("Score from Rater A"),
-      rater_b: z.number().int().min(1).max(5).describe("Score from Rater B"),
-      rater_c: z.number().int().min(1).max(5).describe("Score from Rater C"),
+      rater_a: z
+        .number()
+        .int()
+        .min(1)
+        .max(5)
+        .nullable()
+        .describe("Score from Rater A (null if judge failed)"),
+      rater_b: z
+        .number()
+        .int()
+        .min(1)
+        .max(5)
+        .nullable()
+        .describe("Score from Rater B (null if judge failed)"),
+      rater_c: z
+        .number()
+        .int()
+        .min(1)
+        .max(5)
+        .nullable()
+        .describe("Score from Rater C (null if judge failed)"),
     }),
     mean_score: z
       .number()

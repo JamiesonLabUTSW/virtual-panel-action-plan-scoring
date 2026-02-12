@@ -241,6 +241,7 @@ export async function invokeWithStructuredOutput<T>(
 
   // Try each tier sequentially
   for (const tierConfig of TIER_CONFIGS) {
+    const tierStartTime = Date.now();
     const result = await attemptTier<T>(tierConfig, schema, {
       system: options.system,
       user: options.user,
@@ -255,7 +256,7 @@ export async function invokeWithStructuredOutput<T>(
         tier: tierConfig.tier,
         tierName: getTierName(tierConfig.tier),
         success: true,
-        durationMs: Date.now() - Date.now(), // Will be overwritten by actual duration
+        durationMs: Date.now() - tierStartTime,
       });
 
       return {

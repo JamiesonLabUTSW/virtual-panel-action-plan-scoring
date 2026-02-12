@@ -342,7 +342,6 @@ function GradingView() {
       return;
     }
 
-    // biome-ignore lint/suspicious/noExplicitAny: RunAgentInput is untyped in CopilotKit
     await agent.runAgent({
       proposal: {
         id: Date.now(),

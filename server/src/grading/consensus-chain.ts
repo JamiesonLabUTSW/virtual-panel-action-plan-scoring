@@ -275,7 +275,6 @@ export async function runConsensus(input: ConsensusInput): Promise<ConsensusResu
   const userPrompt = formatConsensusUserPrompt(judgeResults, missingJudgeCount);
 
   // Invoke LLM with structured output
-  // biome-ignore lint/suspicious/noExplicitAny: Generic type parameter is passed to function
   const {
     result: rawResult,
     tier,
@@ -293,9 +292,9 @@ export async function runConsensus(input: ConsensusInput): Promise<ConsensusResu
     agreement: {
       ...rawResult.agreement,
       scores: {
-        rater_a: judgeScores.rater_a ?? 0,
-        rater_b: judgeScores.rater_b ?? 0,
-        rater_c: judgeScores.rater_c ?? 0,
+        rater_a: judgeScores.rater_a ?? null,
+        rater_b: judgeScores.rater_b ?? null,
+        rater_c: judgeScores.rater_c ?? null,
       },
       mean_score: computedStats.mean_score,
       median_score: computedStats.median_score,
