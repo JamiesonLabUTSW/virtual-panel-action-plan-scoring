@@ -42,15 +42,17 @@ export class GradeDocumentAgent extends AbstractAgent {
             runId: input.runId,
           } as BaseEvent);
 
-          // Read proposal from input.state (AG-UI standard) or input root (CopilotKit workaround)
+          // Read proposal from input.state (AG-UI standard)
           const rawState = input.state ?? {};
           const state = rawState as Partial<GradingState>;
-          const inputAny = input as Record<string, unknown>;
-          const proposal =
-            state.proposal ?? (inputAny.proposal as GradingState["proposal"] | undefined);
+          const proposal = state.proposal;
           const proposalId = proposal?.id ?? 1;
           const proposalTitle = proposal?.title;
           const actionItems = proposal?.actionItems ?? [];
+
+          console.info(
+            `[agent] received state keys=${Object.keys(rawState).join(",")} actionItems=${actionItems.length}`
+          );
 
           // Early validation: ensure actionItems is non-empty
           if (!actionItems || actionItems.length === 0) {
@@ -71,12 +73,7 @@ export class GradeDocumentAgent extends AbstractAgent {
               } as BaseEvent);
             }
 
-            subscriber.next({
-              type: EventType.RUN_FINISHED,
-              threadId: input.threadId,
-              runId: input.runId,
-            } as BaseEvent);
-
+            // AG-UI does not allow events after RUN_ERROR, so just complete.
             subscriber.complete();
             return;
           }

@@ -314,7 +314,7 @@ function StatusDisplay({ state }: { state: GradingState | null }) {
 }
 
 function GradingView() {
-  const { state } = useCoAgent<GradingState>({
+  const { state, setState } = useCoAgent<GradingState>({
     name: "gradeDocument",
     initialState: INITIAL_GRADING_STATE,
   });
@@ -342,13 +342,19 @@ function GradingView() {
       return;
     }
 
-    await agent.runAgent({
+    // Set proposal in agent state BEFORE triggering the run.
+    // useCoAgent.setState() calls agent.setState() synchronously, so the
+    // state is available when runAgent() constructs the RunAgentInput body.
+    setState((prev) => ({
+      ...(prev ?? INITIAL_GRADING_STATE),
       proposal: {
         id: Date.now(),
         title: proposalTitle || "Untitled Proposal",
         actionItems: items,
       },
-    } as any);
+    }));
+
+    await agent.runAgent();
   };
 
   return (
