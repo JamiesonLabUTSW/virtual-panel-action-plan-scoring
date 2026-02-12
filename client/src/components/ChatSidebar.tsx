@@ -1,10 +1,12 @@
 import { useCopilotReadable } from "@copilotkit/react-core";
-import { CopilotChat } from "@copilotkit/react-ui";
 import type { GradingState } from "@shared/types";
+import type { ReactNode } from "react";
 import { useState } from "react";
 
 interface ChatSidebarProps {
   state: GradingState;
+  visible: boolean;
+  children: ReactNode;
 }
 
 const SUGGESTED_QUESTIONS = [
@@ -13,13 +15,19 @@ const SUGGESTED_QUESTIONS = [
   "Compare Rater A and Rater C's perspectives",
 ];
 
-export default function ChatSidebar({ state }: ChatSidebarProps) {
+export default function ChatSidebar({ state, visible, children }: ChatSidebarProps) {
   const [isOpen, setIsOpen] = useState(true);
 
   useCopilotReadable({
     description: "Current grading results including judge scores, consensus, and improvements",
     value: JSON.stringify(state, null, 2),
   });
+
+  // When not visible, keep the component mounted (to preserve CopilotChat threadId/runId)
+  // but hide it from the DOM layout entirely.
+  if (!visible) {
+    return <div className="hidden">{children}</div>;
+  }
 
   return (
     <>
@@ -141,23 +149,8 @@ export default function ChatSidebar({ state }: ChatSidebarProps) {
             </div>
           </div>
 
-          {/* CopilotChat */}
-          <div className="flex-1 overflow-hidden copilotKitChat">
-            <CopilotChat
-              instructions={`You are a grading results assistant. The user just completed an AI-powered evaluation of a medical residency program action item proposal. Three calibrated judges (The Professor - strict on structure, The Editor - generous on clarity, The Practitioner - strict on actionability) evaluated the proposal independently, then a consensus arbiter reconciled their scores.
-
-Help the user understand the results by:
-- Explaining why judges agreed or disagreed
-- Comparing different judges' perspectives and calibration biases
-- Suggesting which improvements to prioritize
-- Referencing specific scores, rationales, and action item reviews from the data`}
-              labels={{
-                title: "Grading Assistant",
-                initial:
-                  "I can help you understand the evaluation results. What would you like to know?",
-              }}
-            />
-          </div>
+          {/* CopilotChat (passed from App.tsx to preserve threadId/runId) */}
+          <div className="flex-1 overflow-hidden copilotKitChat">{children}</div>
         </div>
       </div>
     </>

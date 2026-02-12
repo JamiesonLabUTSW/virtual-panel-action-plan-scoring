@@ -144,7 +144,7 @@ export async function runGradingPipeline(input: PipelineInput): Promise<GradingS
         evaluatorName: judge.label,
         actionItemsText,
         fewShotExamples: judge.examples,
-        timeoutMs: 30000,
+        timeoutMs: 60000,
       });
 
       const latencyMs = Date.now() - judgeStartTime;

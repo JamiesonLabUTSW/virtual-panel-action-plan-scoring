@@ -1,4 +1,5 @@
 import { useCoAgent, useCopilotChat } from "@copilotkit/react-core";
+import { CopilotChat } from "@copilotkit/react-ui";
 import { useAgent } from "@copilotkitnext/react";
 import type { GradingState } from "@shared/types";
 import { INITIAL_GRADING_STATE } from "@shared/types";
@@ -20,6 +21,7 @@ export default function GradingView() {
   const { isLoading } = useCopilotChat();
 
   const [hasStarted, setHasStarted] = useState(false);
+  const [resetKey, setResetKey] = useState(0);
 
   const handleSubmit = useCallback(
     async (title: string, text: string) => {
@@ -44,7 +46,18 @@ export default function GradingView() {
       }));
 
       setHasStarted(true);
-      await agent.runAgent();
+      try {
+        await agent.runAgent();
+      } catch (err) {
+        // If runAgent throws (network error, timeout, etc.), transition to error phase
+        // so the error banner with "Try Again" is shown to the user.
+        const message = err instanceof Error ? err.message : String(err);
+        setState((prev) => ({
+          ...(prev ?? INITIAL_GRADING_STATE),
+          phase: "error",
+          error: message || "An unexpected error occurred. Please try again.",
+        }));
+      }
     },
     [agent, setState]
   );
@@ -52,6 +65,18 @@ export default function GradingView() {
   const handleReset = useCallback(() => {
     setState(INITIAL_GRADING_STATE);
     setHasStarted(false);
+    setResetKey((prev) => prev + 1);
+  }, [setState]);
+
+  const handleClearError = useCallback(() => {
+    // Clear error and return to idle state, allowing new submission
+    setState((prev) => ({
+      ...(prev ?? INITIAL_GRADING_STATE),
+      phase: "idle",
+      error: undefined,
+    }));
+    setHasStarted(false);
+    setResetKey((prev) => prev + 1);
   }, [setState]);
 
   const phase = state?.phase ?? "idle";
@@ -59,6 +84,24 @@ export default function GradingView() {
   const showResults = hasStarted || phase !== "idle";
 
   const showChat = phase === "done" && state != null;
+
+  // CopilotChat must be mounted throughout entire grading lifecycle to preserve threadId/runId.
+  // When grading completes, it's rendered inside ChatSidebar. Before that, it's hidden but mounted.
+  const copilotChatElement = (
+    <CopilotChat
+      instructions={`You are a grading results assistant. The user just completed an AI-powered evaluation of a medical residency program action item proposal. Three calibrated judges (The Professor - strict on structure, The Editor - generous on clarity, The Practitioner - strict on actionability) evaluated the proposal independently, then a consensus arbiter reconciled their scores.
+
+Help the user understand the results by:
+- Explaining why judges agreed or disagreed
+- Comparing different judges' perspectives and calibration biases
+- Suggesting which improvements to prioritize
+- Referencing specific scores, rationales, and action item reviews from the data`}
+      labels={{
+        title: "Grading Assistant",
+        initial: "I can help you understand the evaluation results. What would you like to know?",
+      }}
+    />
+  );
 
   return (
     <div className="flex-1 flex flex-col">
@@ -76,7 +119,9 @@ export default function GradingView() {
         <main className="flex-1 overflow-y-auto">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             {/* Document Input (idle state) */}
-            {isIdle && <DocumentInput onSubmit={handleSubmit} disabled={isLoading} />}
+            {isIdle && (
+              <DocumentInput key={resetKey} onSubmit={handleSubmit} disabled={isLoading} />
+            )}
 
             {/* Grading results */}
             {showResults && (
@@ -90,7 +135,7 @@ export default function GradingView() {
                     <p className="text-sm text-red-400">{state.error}</p>
                     <button
                       type="button"
-                      onClick={handleReset}
+                      onClick={handleClearError}
                       className="text-sm text-red-400 hover:text-red-300 underline underline-offset-2 ml-4 flex-shrink-0"
                     >
                       Try Again
@@ -137,8 +182,11 @@ export default function GradingView() {
           </div>
         </main>
 
-        {/* Chat sidebar (appears after grading completes) */}
-        {showChat && <ChatSidebar state={state} />}
+        {/* Chat sidebar — always mounted to preserve CopilotChat threadId/runId.
+            Hidden via CSS until grading completes, then revealed in place. */}
+        <ChatSidebar state={state ?? INITIAL_GRADING_STATE} visible={showChat}>
+          {copilotChatElement}
+        </ChatSidebar>
       </div>
     </div>
   );

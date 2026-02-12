@@ -5,7 +5,7 @@
  * - System prompt: Shared rubric from rubric.txt (scoring anchors, comment style, validation)
  * - User prompt: Few-shot calibration examples + proposal details (ID, evaluator, action items)
  * - Structured output: JudgeOutput schema with 3-tier fallback (strict → non-strict → json + Zod)
- * - Timeout: 30-second hardcoded timeout with AbortController cleanup
+ * - Timeout: 60-second default timeout with AbortController cleanup
  *
  * The judge chain is invoked sequentially by the orchestrator (one judge at a time) to
  * avoid Azure rate limits and enable progressive UI updates.
@@ -85,9 +85,9 @@ export interface JudgeResult {
 }
 
 /**
- * Default timeout for judge evaluations (30 seconds)
+ * Default timeout for judge evaluations (60 seconds)
  */
-const DEFAULT_TIMEOUT_MS = 30000;
+const DEFAULT_TIMEOUT_MS = 60000;
 
 /**
  * Maximum completion tokens for judge evaluations
@@ -110,7 +110,7 @@ const SCHEMA_NAME = "log_review";
  * Returns validated JudgeOutputType with tier information and token usage.
  *
  * **Timeout handling:**
- * - Uses AbortController with 30-second default timeout
+ * - Uses AbortController with 60-second default timeout
  * - Clears timeout in finally block to prevent memory leaks
  * - Throws clear error if timeout exceeded
  *

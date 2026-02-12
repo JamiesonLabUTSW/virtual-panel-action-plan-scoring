@@ -106,7 +106,7 @@ export default function DocumentInput({ onSubmit, disabled }: DocumentInputProps
           </p>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
           {EXAMPLE_ACTION_ITEMS.map((item) => (
             <ExampleCard key={item.id} item={item} onSelect={handleSelectExample} />
           ))}
@@ -115,7 +115,11 @@ export default function DocumentInput({ onSubmit, disabled }: DocumentInputProps
         <div className="text-center">
           <button
             type="button"
-            onClick={() => setMode("editor")}
+            onClick={() => {
+              setTitle("");
+              setText("");
+              setMode("editor");
+            }}
             className="text-sm text-accent hover:text-accent-light transition-colors underline underline-offset-4"
           >
             Or write your own proposal

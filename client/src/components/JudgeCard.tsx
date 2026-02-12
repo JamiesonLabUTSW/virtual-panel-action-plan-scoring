@@ -212,7 +212,7 @@ export default function JudgeCard({ judgeState, raterId }: JudgeCardProps) {
 
   return (
     <section
-      className={`rounded-xl border-t-4 bg-surface-800 p-5 min-w-[320px] transition-all duration-300 ${
+      className={`rounded-xl border-t-4 bg-surface-800 p-4 sm:p-5 min-w-0 sm:min-w-[320px] transition-all duration-300 ${
         status === "running" ? "animate-pulse ring-1 ring-accent/20" : ""
       }`}
       style={{ borderTopColor: borderColor }}
