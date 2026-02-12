@@ -132,7 +132,7 @@ function StepCircle({ step, index }: { step: TimelineStep; index: number }) {
 
 function Connector({ completed }: { completed: boolean }) {
   return (
-    <div className="flex-1 mx-2 h-0.5 rounded-full relative overflow-hidden bg-surface-700 min-w-[24px]">
+    <div className="flex-1 mx-1 sm:mx-2 h-0.5 rounded-full relative overflow-hidden bg-surface-700 min-w-[12px] sm:min-w-[24px]">
       <div
         className={`absolute inset-0 rounded-full transition-all duration-700 ease-out ${
           completed ? "bg-accent w-full" : "w-0"
@@ -153,7 +153,7 @@ export default function GradingTimeline({ state }: GradingTimelineProps) {
         {steps.map((step, i) => (
           <div key={step.id} className="contents">
             {/* Step */}
-            <div className="flex flex-col items-center min-w-[80px]">
+            <div className="flex flex-col items-center min-w-[60px] sm:min-w-[80px]">
               <StepCircle step={step} index={i} />
 
               <span
