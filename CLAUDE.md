@@ -365,6 +365,16 @@ Consensus arbiter references judge rationales (not the original proposal), outpu
   `server/src/resources/rubric.txt` includes injection defense
 - Never log proposal content; log only per-run metrics (scores, latency)
 
+**Known Implementation Limitations:**
+
+- **Timeout handling:** Judge chain creates AbortController but signal is not yet passed to the API
+  (prepared for future SDK support). Consensus chain declares `timeoutMs` parameter but does not
+  implement timeout handling yet.
+- **Missing judge scores:** ConsensusOutput schema requires all three rater scores (min: 1, max: 5),
+  but implementation uses sentinel value (0) for missing judges, which violates schema constraint.
+  This is stored in-memory after validation but may cause issues if re-serialized or validated
+  downstream.
+
 ## Code Quality Tooling
 
 **Toolchain:** Biome (lint + format), Prettier (MD only), Vitest (coverage), Husky + lint-staged

@@ -289,7 +289,7 @@ export const ConsensusOutput = z.object({
   rationale: z
     .string()
     .describe(
-      "3-5 sentence synthesis using judge rationales and evidence, NOT new proposal analysis"
+      "3-5 sentence synthesis using judge rationales and evidence, NOT new document analysis"
     ),
   agreement: z.object({
     scores: z.object({
@@ -372,29 +372,38 @@ Evaluate these action items according to the rubric.
 #### Consensus System Prompt
 
 ```
-You are a consensus ARBITER. You receive evaluations from three calibrated
-judges who assessed the same program proposal against the same rubric. Each
-judge was calibrated with a different human rater's example judgments:
+You are a consensus ARBITER. You receive evaluations from up to three calibrated
+judges (Rater A "The Professor", Rater B "The Editor", Rater C "The Practitioner")
+who assessed the same program proposal against the same rubric. Each judge was
+calibrated with a different human rater's few-shot examples, giving them distinct
+scoring tendencies.
 
-- Rater A ("The Professor"): strict on structure, quantitative targets, and
-  metric specificity; lenient on presentation
-- Rater B ("The Editor"): generous on feasibility and clarity; focuses on
-  achievability
-- Rater C ("The Practitioner"): strict on actionability, data richness, and
-  practical impact; lenient on formality
+RATER PERSONAS:
+- Rater A ("The Professor"): strict on structure, quantitative targets, metric
+  specificity; demands detailed methodology and clear execution plans
+- Rater B ("The Editor"): generous on feasibility and clarity; values achievable,
+  well-articulated plans with clear timelines
+- Rater C ("The Practitioner"): strict on actionability, data richness, practical
+  impact; focuses on real-world implementation and concrete mechanisms
+
+YOUR TASK:
+Read each judge's per-item feedback and overall rationale. Synthesize their
+perspectives into a single consensus evaluation grounded in their reasoning.
 
 ARBITER RULES:
 1. Your final_score MUST be within [min(judge scores), max(judge scores)].
    You may NOT score outside this range.
-2. Justify your final score using the judges' rationales and the per-item
-   feedback they provided. Do NOT introduce new claims about the proposal.
-3. When judges agree, note the consensus and the shared themes.
+2. Your rationale must reference specific points from the judges' feedback.
+   Do NOT introduce new claims about the proposal — only synthesize what
+   the judges observed.
+3. When judges agree, note the consensus and shared themes.
 4. When judges disagree, explain WHY based on their different calibration
    perspectives and the specific feedback each provided.
-5. If only 2 judges succeeded, explicitly acknowledge the missing perspective
-   and note reduced confidence.
-6. Produce consolidated improvement suggestions — deduplicate across judges.
-7. Return ONLY valid JSON matching the required schema.
+5. If fewer than 3 judges succeeded, explicitly acknowledge the missing
+   perspective(s) and note reduced confidence in the consensus.
+6. Produce consolidated improvement suggestions — deduplicate across judges,
+   merging similar points into one clear recommendation.
+7. Return ONLY valid JSON matching the required schema. No free-form text.
 ```
 
 #### Consensus User Prompt Template
@@ -402,17 +411,20 @@ ARBITER RULES:
 ```
 ## Judge Evaluations
 
-### Rater A (The Professor) — Overall: {a.overall_score}/5
+### Rater A (The Professor) — Overall Score: {a.overall_score}/5
 {JSON.stringify(judge_a_output, null, 2)}
 
-### Rater B (The Editor) — Overall: {b.overall_score}/5
+### Rater B (The Editor) — Overall Score: {b.overall_score}/5
 {JSON.stringify(judge_b_output, null, 2)}
 
-### Rater C (The Practitioner) — Overall: {c.overall_score}/5
+### Rater C (The Practitioner) — Overall Score: {c.overall_score}/5
 {JSON.stringify(judge_c_output, null, 2)}
 
-Synthesize these evaluations into a consensus as an arbiter. Return your
-synthesis as JSON.
+NOTE: {missingJudgeCount} judge(s) did not complete evaluation. Acknowledge the
+missing perspective and proceed with consensus from available judges.
+
+Synthesize these evaluations into a consensus assessment. Return your synthesis
+as valid JSON.
 ```
 
 ---
@@ -1385,15 +1397,21 @@ In HF Spaces settings, add as **secrets** (not visible in UI):
 
 ## 11 · Error States & Graceful Degradation
 
-| Scenario                                 | Behavior                                                                                                                      |
-| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| **1 judge fails**                        | UI shows red error on that judge's card. Consensus proceeds with 2 judges. Consensus prompt acknowledges missing perspective. |
-| **2+ judges fail**                       | UI shows error state: "Unable to form consensus. Please try again." Offer a retry button that resets to `phase: "idle"`.      |
-| **Azure OpenAI timeout**                 | 30-second timeout per judge call. On timeout, mark judge as error and continue.                                               |
-| **Structured output — all 3 tiers fail** | Mark judge as error. Log the tier-specific failures for debugging.                                                            |
-| **Proposal too long**                    | Frontend blocks submission with action item count warning. Backend truncates with `wasTruncated: true` flag, shown in UI.     |
-| **Azure quota exceeded**                 | Surface Azure error message to UI: "LLM service temporarily unavailable. Please try again later."                             |
-| **CopilotKit connection lost**           | Frontend shows reconnection notice. State is stateless (no persistence needed).                                               |
+| Scenario                                 | Behavior                                                                                                                                                                                                                                                                                                              |
+| ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **1 judge fails**                        | UI shows red error on that judge's card. Consensus proceeds with 2 judges. Consensus prompt acknowledges missing perspective.                                                                                                                                                                                         |
+| **2+ judges fail**                       | UI shows error state: "Unable to form consensus. Please try again." Offer a retry button that resets to `phase: "idle"`.                                                                                                                                                                                              |
+| **Azure OpenAI timeout**                 | 30-second timeout per judge call. On timeout, mark judge as error and continue. **Note:** Judge chain implements timeout with AbortController, but signal is not yet passed to the API (prepared for future SDK support). Consensus chain declares `timeoutMs` parameter but does not implement timeout handling yet. |
+| **Structured output — all 3 tiers fail** | Mark judge as error. Log the tier-specific failures for debugging.                                                                                                                                                                                                                                                    |
+| **Proposal too long**                    | Frontend blocks submission with action item count warning. Backend truncates with `wasTruncated: true` flag, shown in UI.                                                                                                                                                                                             |
+| **Azure quota exceeded**                 | Surface Azure error message to UI: "LLM service temporarily unavailable. Please try again later."                                                                                                                                                                                                                     |
+| **CopilotKit connection lost**           | Frontend shows reconnection notice. State is stateless (no persistence needed).                                                                                                                                                                                                                                       |
+
+**Schema Notes:**
+
+- `ConsensusOutput.agreement.scores` requires all three rater scores (min: 1, max: 5). When a judge
+  fails, the implementation stores a sentinel value (0) that violates the schema constraint. Future
+  work: Make scores optional/nullable or use only available judges in the scores object.
 
 ---
 
