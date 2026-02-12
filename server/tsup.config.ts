@@ -10,4 +10,5 @@ export default defineConfig({
   dts: false,
   sourcemap: true,
   shims: true,
+  publicDir: "src/resources",
 });
