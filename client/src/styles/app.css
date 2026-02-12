@@ -1,0 +1,181 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens and animations for the Judge Arena dark theme.
+ * All color constants live here or in the utility modules — never inline hex values in components.
+ */
+
+@theme {
+  /* Surface colors */
+  --color-surface-900: #0f172a;
+  --color-surface-800: #1e293b;
+  --color-surface-700: #334155;
+  --color-surface-600: #475569;
+
+  /* Text */
+  --color-text-primary: #f8fafc;
+  --color-text-secondary: #94a3b8;
+
+  /* Accent */
+  --color-accent: #6366f1;
+  --color-accent-light: #818cf8;
+
+  /* Judge accent colors */
+  --color-judge-a: #8b5cf6;
+  --color-judge-b: #06b6d4;
+  --color-judge-c: #f59e0b;
+
+  /* Score colors (1-5) */
+  --color-score-1: #dc2626;
+  --color-score-2: #f97316;
+  --color-score-3: #eab308;
+  --color-score-4: #22c55e;
+  --color-score-5: #16a34a;
+
+  /* Agreement colors */
+  --color-agreement-strong: #22c55e;
+  --color-agreement-moderate: #eab308;
+  --color-agreement-weak: #dc2626;
+
+  /* Animations */
+  --animate-fade-in: fade-in 0.4s ease-out both;
+  --animate-fade-in-up: fade-in-up 0.5s ease-out both;
+  --animate-slide-in-right: slide-in-right 0.4s ease-out both;
+  --animate-score-reveal: score-reveal 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  --animate-pulse-ring: pulse-ring 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  --animate-shimmer: shimmer 1.5s ease-in-out infinite;
+  --animate-converge: converge 1.2s ease-out both;
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes fade-in-up {
+    from {
+      opacity: 0;
+      transform: translateY(16px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes slide-in-right {
+    from {
+      opacity: 0;
+      transform: translateX(24px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  @keyframes score-reveal {
+    0% {
+      opacity: 0;
+      transform: scale(0.3) rotateY(90deg);
+    }
+    60% {
+      opacity: 1;
+      transform: scale(1.15) rotateY(0deg);
+    }
+    100% {
+      opacity: 1;
+      transform: scale(1) rotateY(0deg);
+    }
+  }
+
+  @keyframes pulse-ring {
+    0% {
+      box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.5);
+    }
+    70% {
+      box-shadow: 0 0 0 10px rgba(99, 102, 241, 0);
+    }
+    100% {
+      box-shadow: 0 0 0 0 rgba(99, 102, 241, 0);
+    }
+  }
+
+  @keyframes shimmer {
+    0% {
+      background-position: -200% 0;
+    }
+    100% {
+      background-position: 200% 0;
+    }
+  }
+
+  @keyframes converge {
+    from {
+      stroke-dashoffset: 200;
+    }
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+}
+
+/* CopilotKit dark theme overrides */
+:root {
+  --copilot-kit-primary-color: #6366f1;
+  --copilot-kit-background-color: #1e293b;
+  --copilot-kit-contrast-color: #f8fafc;
+  --copilot-kit-muted-color: #94a3b8;
+  --copilot-kit-separator-color: #475569;
+}
+
+/* Base styles */
+body {
+  margin: 0;
+  background-color: #0f172a;
+  color: #f8fafc;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Shimmer skeleton utility */
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--color-surface-700) 25%,
+    var(--color-surface-600) 50%,
+    var(--color-surface-700) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+/* Stagger delay utilities for fade-in animations */
+.stagger-1 {
+  animation-delay: 150ms;
+}
+.stagger-2 {
+  animation-delay: 300ms;
+}
+.stagger-3 {
+  animation-delay: 450ms;
+}
+.stagger-4 {
+  animation-delay: 600ms;
+}
+.stagger-5 {
+  animation-delay: 750ms;
+}
+.stagger-6 {
+  animation-delay: 900ms;
+}
+.stagger-7 {
+  animation-delay: 1050ms;
+}
+.stagger-8 {
+  animation-delay: 1200ms;
+}
