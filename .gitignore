@@ -48,3 +48,6 @@ docs/api/
 
 # Husky internals
 .husky/_/
+
+# Playwright MCP debug logs
+.playwright-mcp/
