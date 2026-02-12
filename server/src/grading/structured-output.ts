@@ -13,9 +13,9 @@
  * the next tier is tried. If all 3 tiers fail, a StructuredOutputError is thrown.
  */
 
-import type { ZodSchema } from "zod";
 import { zodTextFormat } from "openai/helpers/zod";
-import { client, MAX_COMPLETION_TOKENS, MODEL } from "./llm";
+import type { ZodSchema } from "zod";
+import { MAX_COMPLETION_TOKENS, MODEL, client } from "./llm";
 import { StructuredOutputError, type TierAttempt } from "./structured-output-errors";
 
 export interface InvokeOptions {
@@ -134,22 +134,21 @@ async function attemptTier<T>(
     maxTokens: number;
     schemaName: string;
     jsonSchema: unknown;
-  },
-): Promise<{ success: true; result: T; usage: StructuredInvokeResult<T>["usage"] } | { success: false; error: Error; durationMs: number }> {
+  }
+): Promise<
+  | { success: true; result: T; usage: StructuredInvokeResult<T>["usage"] }
+  | { success: false; error: Error; durationMs: number }
+> {
   const startTime = Date.now();
 
   try {
     // Use Responses API for reasoning models (gpt-5.1-codex-mini)
     // Responses API uses input/instructions instead of messages array
-    // biome-ignore lint/suspicious/noExplicitAny: Text format is dynamic per tier
     const response = await client.responses.create({
       model: MODEL,
       instructions: options.system, // System prompt becomes instructions
       input: options.user, // User message becomes input
-      text: tierConfig.getTextFormat(
-        options.schemaName,
-        options.jsonSchema,
-      ) as any,
+      text: tierConfig.getTextFormat(options.schemaName, options.jsonSchema) as any,
       max_output_tokens: options.maxTokens,
     } as any); // Type assertion needed due to SDK type limitations
 
@@ -161,9 +160,7 @@ async function attemptTier<T>(
       const details = responseObj.incomplete_details
         ? `: ${JSON.stringify(responseObj.incomplete_details)}`
         : "";
-      throw new Error(
-        `Azure Responses API returned status "${responseObj.status}"${details}`,
-      );
+      throw new Error(`Azure Responses API returned status "${responseObj.status}"${details}`);
     }
 
     // Responses API uses output_text (convenience) or output[].content[].text
@@ -171,7 +168,7 @@ async function attemptTier<T>(
     if (!content) {
       throw new Error(
         `No output_text from Azure Responses API (status: ${responseObj.status ?? "unknown"}). ` +
-        `Response: ${JSON.stringify(response).substring(0, 300)}`,
+          `Response: ${JSON.stringify(response).substring(0, 300)}`
       );
     }
 
@@ -181,7 +178,7 @@ async function attemptTier<T>(
       parsed = JSON.parse(content);
     } catch (parseError) {
       throw new Error(
-        `JSON.parse failed: ${parseError instanceof Error ? parseError.message : String(parseError)}. Content (first 200 chars): ${content.substring(0, 200)}`,
+        `JSON.parse failed: ${parseError instanceof Error ? parseError.message : String(parseError)}. Content (first 200 chars): ${content.substring(0, 200)}`
       );
     }
 
@@ -191,7 +188,7 @@ async function attemptTier<T>(
       validated = schema.parse(parsed) as T;
     } catch (zodError) {
       throw new Error(
-        `Zod validation failed: ${zodError instanceof Error ? zodError.message : String(zodError)}`,
+        `Zod validation failed: ${zodError instanceof Error ? zodError.message : String(zodError)}`
       );
     }
 
@@ -226,7 +223,7 @@ async function attemptTier<T>(
 export async function invokeWithStructuredOutput<T>(
   // biome-ignore lint/suspicious/noExplicitAny: Schema validation happens at runtime
   schema: ZodSchema<any>,
-  options: InvokeOptions,
+  options: InvokeOptions
 ): Promise<StructuredInvokeResult<T>> {
   const attempts: TierAttempt[] = [];
   let lastError: Error = new Error("Unknown error");
@@ -240,7 +237,7 @@ export async function invokeWithStructuredOutput<T>(
   // biome-ignore lint/suspicious/noExplicitAny: Schema is a Record from zodTextFormat
   const jsonSchema = { ...(textFormat.schema as any) };
   // Remove $schema meta-field (not required by API, may cause issues with Azure)
-  delete jsonSchema.$schema;
+  jsonSchema.$schema = undefined;
 
   // Try each tier sequentially
   for (const tierConfig of TIER_CONFIGS) {
@@ -283,7 +280,7 @@ export async function invokeWithStructuredOutput<T>(
   const error = new StructuredOutputError(
     "All 3 tiers of structured output failed",
     attempts,
-    lastError,
+    lastError
   );
 
   throw error;

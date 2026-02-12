@@ -20,7 +20,7 @@ export class StructuredOutputError extends Error {
   constructor(
     message: string,
     public readonly attempts: TierAttempt[],
-    public readonly finalError: Error,
+    public readonly finalError: Error
   ) {
     super(message);
     this.name = "StructuredOutputError";
@@ -35,7 +35,7 @@ export class StructuredOutputError extends Error {
         (a) =>
           `  Tier ${a.tier} (${a.tierName}): ${a.success ? "✓ SUCCESS" : "✗ FAILED"} in ${a.durationMs}ms${
             a.error ? ` - ${a.error.message}` : ""
-          }`,
+          }`
       )
       .join("\n");
 
