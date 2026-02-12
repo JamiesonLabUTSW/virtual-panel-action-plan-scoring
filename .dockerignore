@@ -1,0 +1,77 @@
+# .dockerignore - Optimize build context size and speed
+
+# Node modules (installed fresh in container)
+node_modules
+**/node_modules
+
+# Build outputs (created during Docker build)
+dist
+**/dist
+build
+**/build
+
+# Development files
+.git
+.gitignore
+.gitlab
+.gitlab-ci.yml
+.env
+.env.*
+!.env.example
+
+# IDE and editor files
+.vscode
+.idea
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Test files and coverage
+**/__tests__
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+**/*.spec.tsx
+coverage
+.nyc_output
+*.lcov
+
+# Documentation and planning
+docs
+*.md
+!README.md
+!server/src/resources/**/*.md
+CLAUDE.md
+CODE_STANDARDS.md
+
+# CI/CD and tooling configs
+.husky
+.prettierrc*
+.prettierignore
+biome.json
+.lintstagedrc*
+knip.json
+typedoc.json
+vitest.config.ts
+vitest.config.shared.ts
+
+# Scripts
+scripts
+*.sh
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# OS files
+Thumbs.db
+
+# Temporary files
+tmp
+temp
+*.tmp

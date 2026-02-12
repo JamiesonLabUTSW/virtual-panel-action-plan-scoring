@@ -13,6 +13,7 @@
 
 import type { GradingState, JudgeState } from "@shared/types";
 import { runConsensus } from "./consensus-chain";
+import { checkContentSafety } from "./content-safety";
 import { RATER_A_EXAMPLES, RATER_B_EXAMPLES, RATER_C_EXAMPLES } from "./few-shot-sets";
 import { runJudge } from "./judge-chain";
 
@@ -91,12 +92,15 @@ const JUDGES: JudgeConfig[] = [
 export async function runGradingPipeline(input: PipelineInput): Promise<GradingState> {
   const { proposalId, proposalTitle, actionItems, emitState } = input;
 
-  // Truncate action items to max 20
-  const truncatedItems = actionItems.slice(0, 20);
-  const wasTruncated = actionItems.length > 20;
+  // Truncate proposal text to max 20,000 characters
+  const MAX_CHARS = 20_000;
+  const proposalText = actionItems[0] || "";
+  const truncatedText = proposalText.slice(0, MAX_CHARS);
+  const wasTruncated = proposalText.length > MAX_CHARS;
+  const truncatedItems = [truncatedText];
 
-  // Validate non-empty action items
-  if (truncatedItems.length === 0) {
+  // Validate non-empty proposal text
+  if (truncatedText.trim().length === 0) {
     const errorMsg = "No action items provided. At least 1 action item is required for evaluation.";
     console.error(`[run] FAILED proposal_id=${proposalId}: ${errorMsg}`);
     emitState({
@@ -107,7 +111,54 @@ export async function runGradingPipeline(input: PipelineInput): Promise<GradingS
     throw new Error(errorMsg);
   }
 
-  console.info(`[run] started proposal_id=${proposalId} action_items=${truncatedItems.length}`);
+  // Content safety check: Screen proposal text for injection attempts and inappropriate content
+  // This is the ONLY untrusted user input in the system - all other inputs (rubric, few-shot
+  // examples, system prompts) are controlled server-side.
+  console.info("[content-safety] Screening proposal text...");
+
+  try {
+    const safetyResult = await checkContentSafety(proposalText);
+
+    // Log result (never log proposal content)
+    if (safetyResult.isSafe) {
+      console.info(`[content-safety] result=safe latency=${safetyResult.latencyMs}ms`);
+    } else {
+      console.warn(
+        `[content-safety] result=blocked latency=${safetyResult.latencyMs}ms reason="${safetyResult.reason}"`
+      );
+
+      // Emit error state
+      const errorMsg =
+        "This proposal contains inappropriate content or invalid formatting. Please review and try again.";
+      emitState({
+        phase: "error",
+        judges: {},
+        error: errorMsg,
+      });
+      throw new Error(errorMsg);
+    }
+  } catch (error) {
+    // Re-throw content safety rejections as-is (already have error state emitted)
+    if (error instanceof Error && error.message.includes("inappropriate content")) {
+      throw error;
+    }
+
+    // Infrastructure errors (network, auth, rate limit) — emit error state with sanitized message
+    const errorMsg = "Unable to verify content safety. Please try again.";
+    console.error(
+      `[content-safety] FAILED: ${error instanceof Error ? error.message : String(error)}`
+    );
+    emitState({
+      phase: "error",
+      judges: {},
+      error: errorMsg,
+    });
+    throw new Error(errorMsg);
+  }
+
+  console.info(
+    `[run] started proposal_id=${proposalId} chars=${truncatedText.length} truncated=${wasTruncated}`
+  );
 
   const runStartTime = Date.now();
 
@@ -169,15 +220,15 @@ export async function runGradingPipeline(input: PipelineInput): Promise<GradingS
     } catch (error) {
       const latencyMs = Date.now() - judgeStartTime;
 
-      // Update local state with error
+      // Update local state with sanitized error message
       judgeResults[judge.id] = {
         status: "error",
         label: judge.label,
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: "An error occurred during evaluation. Please try again.",
         latencyMs,
       };
 
-      // Log judge failure
+      // Log judge failure with full technical details (server logs only)
       console.error(
         `[judge:${judge.id}] FAILED after ${latencyMs}ms: ${
           error instanceof Error ? error.message : String(error)
@@ -271,7 +322,7 @@ export async function runGradingPipeline(input: PipelineInput): Promise<GradingS
     emitState({
       phase: "error",
       judges: { ...judgeResults },
-      error: `Consensus failed: ${errorMsg}`,
+      error: "An error occurred during evaluation. Please try again.",
     });
 
     throw error;
