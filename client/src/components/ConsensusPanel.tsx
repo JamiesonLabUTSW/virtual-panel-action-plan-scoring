@@ -6,6 +6,7 @@ import { getScoreStyle } from "../utils/score-colors";
 
 interface ConsensusPanelProps {
   state: GradingState;
+  highlighted?: boolean;
 }
 
 function ConvergenceSVG({ consensus }: { consensus: ConsensusOutputType }) {
@@ -112,7 +113,7 @@ function ConvergenceSVG({ consensus }: { consensus: ConsensusOutputType }) {
   );
 }
 
-export default function ConsensusPanel({ state }: ConsensusPanelProps) {
+export default function ConsensusPanel({ state, highlighted = false }: ConsensusPanelProps) {
   const consensus = state.consensus;
   if (!consensus) return null;
 
@@ -130,7 +131,11 @@ export default function ConsensusPanel({ state }: ConsensusPanelProps) {
         </p>
       </div>
 
-      <div className="bg-surface-800 rounded-xl border border-surface-700 p-6 space-y-6">
+      <div
+        className={`bg-surface-800 rounded-xl border border-surface-700 p-6 space-y-6 ${
+          highlighted ? "ring-2 ring-accent" : ""
+        }`}
+      >
         {/* SVG Convergence */}
         <ConvergenceSVG consensus={consensus} />
 

@@ -1,7 +1,7 @@
 import { useCopilotReadable } from "@copilotkit/react-core";
 import type { GradingState } from "@shared/types";
 import type { ReactNode } from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 interface ChatSidebarProps {
   state: GradingState;
@@ -16,7 +16,19 @@ const SUGGESTED_QUESTIONS = [
 ];
 
 export default function ChatSidebar({ state, visible, children }: ChatSidebarProps) {
-  const [isOpen, setIsOpen] = useState(true);
+  const [isOpen, setIsOpen] = useState(false);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(min-width: 1280px)");
+    setIsOpen(mediaQuery.matches); // Open on desktop, closed on mobile
+
+    const handleChange = (e: MediaQueryListEvent) => {
+      setIsOpen(e.matches);
+    };
+
+    mediaQuery.addEventListener("change", handleChange);
+    return () => mediaQuery.removeEventListener("change", handleChange);
+  }, []);
 
   useCopilotReadable({
     description: "Current grading results including judge scores, consensus, and improvements",
@@ -150,7 +162,7 @@ export default function ChatSidebar({ state, visible, children }: ChatSidebarPro
           </div>
 
           {/* CopilotChat (passed from App.tsx to preserve threadId/runId) */}
-          <div className="flex-1 overflow-hidden copilotKitChat">{children}</div>
+          <div className="flex-1 overflow-y-auto copilotKitChat">{children}</div>
         </div>
       </div>
     </>
