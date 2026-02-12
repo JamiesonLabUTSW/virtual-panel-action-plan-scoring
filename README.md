@@ -1,12 +1,29 @@
-# Multi-Judge LLM Grading Demo
+---
+title: Multi-Judge Grading Demo
+emoji: ⚖️
+colorFrom: blue
+colorTo: green
+sdk: docker
+app_port: 7860
+pinned: false
+---
 
-A medical residency program action item evaluation system using a panel of calibrated AI judges.
+# Leveraging Artificial Intelligence to Enhance Institutional Quality Assurance: Automating Annual Action Plan Scoring as a Use Case
+
+**2026 ACGME Annual Educational Conference — Meaning in Medicine**
+
+The project demonstrates a method for simulating expert evaluator panels using example-conditioned
+large language model (LLM) personas and aggregating their outputs into a consensus evaluation.
+
+https://youtu.be/yYaZP-fsjMo
+
+---
 
 ## Overview
 
-Three AI judges (each calibrated with a different human rater's scoring patterns) evaluate program
-action items against a shared rubric. A consensus arbiter then reconciles their scores to produce a
-final assessment.
+Three AI judges (each calibrated with a different human rater's scoring patterns) evaluate medical
+residency program action items against a shared rubric. A consensus arbiter then reconciles their
+scores to produce a final assessment.
 
 ## Stack
 
