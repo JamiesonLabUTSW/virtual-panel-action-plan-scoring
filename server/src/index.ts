@@ -5,6 +5,7 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { CopilotRuntime, OpenAIAdapter, copilotRuntimeNodeHttpEndpoint } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkitnext/agent";
 import express, { type Request, type Response } from "express";
+import rateLimit from "express-rate-limit";
 import OpenAI from "openai";
 import { GradeDocumentAgent } from "./agents/grade-document-agent";
 import { exitIfInvalid, validateRequiredEnvVars } from "./config/env-validation";
@@ -14,6 +15,14 @@ const app = express();
 
 // Environment variables
 const PORT = process.env.PORT ? Number.parseInt(process.env.PORT, 10) : 7860;
+
+// Rate limiting and request size configuration (Issues #56, #57)
+// Note: CopilotKit's AG-UI protocol sends ~10 requests per page load and ~15
+// per grading run through the single /api/copilotkit endpoint. A limit of 200
+// HTTP requests/hour allows ~10 grading runs with headroom for page reloads.
+const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+const RATE_LIMIT_MAX_REQUESTS = 200;
+const REQUEST_SIZE_LIMIT = "5mb";
 
 // Validate required environment variables (Issue #21)
 const envValidation = validateRequiredEnvVars();
@@ -49,6 +58,29 @@ const azureAIProvider = createOpenAI({
   headers: { "api-key": AZURE_OPENAI_API_KEY },
 });
 
+// Configure rate limiter for CopilotKit endpoint (Issue #56)
+const gradingLimiter = rateLimit({
+  windowMs: RATE_LIMIT_WINDOW_MS,
+  max: RATE_LIMIT_MAX_REQUESTS,
+  standardHeaders: true, // Return rate limit info in `RateLimit-*` headers
+  legacyHeaders: false, // Disable `X-RateLimit-*` headers
+  handler: (req, res, _next, _optionsUsed) => {
+    const ip = req.ip || req.socket.remoteAddress || "unknown";
+    console.warn(`Rate limit exceeded for IP: ${ip} at ${new Date().toISOString()}`);
+
+    // Type assertion needed: req.rateLimit added by express-rate-limit at runtime
+    const rateLimitInfo = (req as any).rateLimit;
+    const retryAfter = rateLimitInfo?.resetTime
+      ? Math.ceil(rateLimitInfo.resetTime.getTime() / 1000)
+      : Math.ceil((Date.now() + RATE_LIMIT_WINDOW_MS) / 1000);
+
+    res.status(429).json({
+      error: "Too many grading requests. Please try again later.",
+      retryAfter, // Unix timestamp
+    });
+  },
+});
+
 // Initialize CopilotKit runtime with:
 // - "default": BuiltInAgent for post-grading chat (uses Azure OpenAI via Vercel AI SDK)
 // - "gradeDocument": Custom AbstractAgent for the multi-judge grading pipeline
@@ -63,7 +95,7 @@ const copilotRuntime = new CopilotRuntime({
 });
 
 // Middleware
-app.use(express.json());
+app.use(express.json({ limit: REQUEST_SIZE_LIMIT }));
 
 // Health check endpoint
 app.get("/api/health", (_req: Request, _res: Response) => {
@@ -73,6 +105,9 @@ app.get("/api/health", (_req: Request, _res: Response) => {
     api: "azure-v1",
   });
 });
+
+// Apply rate limiting to CopilotKit endpoint (all subpaths)
+app.use("/api/copilotkit", gradingLimiter);
 
 // CopilotKit runtime endpoint
 // IMPORTANT: Mount at root (not app.use("/api/copilotkit", ...)) because
