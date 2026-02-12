@@ -1,0 +1,100 @@
+{
+  "phase": "done",
+  "proposal": {
+    "id": 1770914479909,
+    "title": "Surgery",
+    "actionItems": [
+      "# Surgery — Action Item",
+      "Major Content Areas: Curriculum",
+      "Specific Content Areas: Operative autonomy and progressive responsibility; preparedness for independent practice; senior resident chief experience",
+      "Background:",
+      "Over the past three academic years, multiple data sources have shown that our residents, particularly graduating chiefs, perceive suboptimal operative autonomy and have variable opportunities for progressive responsibility. The ACGME Resident Survey item on adequate operative experience/autonomy has declined from 72% positive in 2021-2022 to 66% in 2023-2024, now roughly 18 points below the national mean for general surgery (84%). Our internal annual survey shows a parallel trend: the proportion of PGY3-4 residents who agree they have appropriate graded responsibility in the OR dropped from 74% to 65% over three years, and for PGY5s the decline was steeper, from 70% to 58%.",
+      "ABSITE operative management subscores for PGY4-5 residents have slipped from the 58th to the 52nd percentile over the same period. While overall ABSITE performance remains acceptable (58th-62nd percentile), the downward trend in operative management domains suggests fewer meaningful intraoperative decision-making opportunities. Case log data tells a similar story: total major cases remain stable and above ABS minimums (950-980 median), but median chief-level cases have drifted from 160 to 148.",
+      "Objective:",
+      "By June 30, 2027, design and implement a structured progressive-responsibility and operative-autonomy curriculum that improves ACGME survey positive responses from 66% to 80%+, increases chief-level index cases, and raises ABSITE operative management subscores from the 52nd to 60th percentile.",
+      "Action Steps:",
+      "1. Finalize and approve the progressive-responsibility framework by presenting the draft index procedure and PGY-level expectations to the Education Committee and Department Executive Committee. PD and APD for Curriculum lead; December 2025 through January 2026.",
+      "2. Launch faculty development on graded autonomy through at least two live workshops plus a recorded module. PD and Site Directors lead; February-April 2026.",
+      "3. Pilot pre-op autonomy contracts and post-op debrief forms for five high-yield index procedures. APD for Clinical Operations and Chief Residents lead; pilot April-June 2026, full rollout July 2026.",
+      "4. Integrate autonomy content into conferences and simulation with quarterly operative decision-making case conferences. Simulation Director and APD for Curriculum lead; by July 2026.",
+      "5. Align rotation structure and individualized goals by reviewing PGY3-5 block assignments. APD for Clinical Operations and Site Directors lead; rotation planning October-December 2026."
+    ],
+    "wasTruncated": false
+  },
+  "judges": {
+    "rater_a": {
+      "status": "done",
+      "label": "Rater A",
+      "result": {
+        "proposal_id": 1770914479909,
+        "evaluator_id": 1,
+        "evaluator_name": "Rater A",
+        "items": [
+          {
+            "action_item_id": 1,
+            "comment": "This action item is exceptionally comprehensive, tying robust longitudinal data (ACGME and internal survey trends, ABSITE subscores, and case log shifts) to a clear need for structured operative autonomy and progressive responsibility. The objective is precisely defined with quantitative targets and realistic timelines, and the measurement strategy clearly outlines baselines, expected values, and process metrics. The phased action steps assign clear ownership and deadlines, while the iterative and summative evaluation plan showcases a sophisticated monitoring framework. For further strengthening, the plan could more explicitly address balancing service demands with educational goals amid clinical productivity pressures.",
+            "score": 5
+          }
+        ],
+        "overall_score": 5
+      },
+      "latencyMs": 55124
+    },
+    "rater_b": {
+      "status": "done",
+      "label": "Rater B",
+      "result": {
+        "proposal_id": 1770914479909,
+        "evaluator_id": 2,
+        "evaluator_name": "Rater B",
+        "items": [
+          {
+            "action_item_id": 1,
+            "comment": "Background is rich with multiple data streams and a convincing rationale for the progressive-responsibility curriculum, and the objectives set ambitious yet measurable targets for survey scores, index case volume, and ABSITE subscores. The sequence of approvals, faculty development, pilot tools, curriculum integration, and rotation alignment is logical, role-assigned, and linked to the stated outcomes, with clear checkpoints through 2027. The plan also builds in iterative data collection (plans/debrief compliance, focus groups, CCC review, ABSITE triggers) so adjustments can be made before the summative 2027 decision point.",
+            "score": 5
+          }
+        ],
+        "overall_score": 5
+      },
+      "latencyMs": 17146
+    },
+    "rater_c": {
+      "status": "done",
+      "label": "Rater C",
+      "result": {
+        "proposal_id": 1770914479909,
+        "evaluator_id": 3,
+        "evaluator_name": "Rater C",
+        "items": [
+          {
+            "action_item_id": 1,
+            "comment": "Robust use of multi-year data (ACGME survey, internal perceptions, ABSITE subscores, case logs) clearly defines the autonomy gap and justifies the proposed structured curriculum; objectives are ambitious yet measurable with baselines and stretch targets across perceptions, chief case volume, and ABSITE performance. The phased action steps—framework sign-off, faculty development, autonomy contracts/debriefs, curriculum/simulation integration, and rotation realignment—are logically sequenced, assign accountability, and include iterative/summative checks tied to the stated metrics. The inclusion of process and faculty development metrics, along with a clear pilot-to-scale approach, gives confidence in feasibility while leaving room to monitor fidelity through quarterly dashboards and focus groups.",
+            "score": 5
+          }
+        ],
+        "overall_score": 5
+      },
+      "latencyMs": 8631
+    }
+  },
+  "consensus": {
+    "final_score": 5,
+    "rationale": "All three judges highlighted the proposal’s exceptionally robust use of multi-year data streams (ACGME surveys, internal perceptions, ABSITE subscores, and case logs) to define a clear autonomy gap. They agreed on the ambitious yet measurable objectives with baselines and stretch targets, and praised the logically sequenced, phase‑based action steps with explicit ownership, deadlines, and iterative/summative evaluation measures. The consensus affirms a sophisticated monitoring framework and pilot‑to‑scale approach that balances feasibility with rigorous oversight. The only suggested enhancement was to more explicitly address balancing service demands with educational goals amid clinical productivity pressures.",
+    "agreement": {
+      "scores": {
+        "rater_a": 5,
+        "rater_b": 5,
+        "rater_c": 5
+      },
+      "mean_score": 5,
+      "median_score": 5,
+      "spread": 0,
+      "agreement_level": "strong",
+      "disagreement_analysis": "No substantive disagreements emerged; all judges uniformly cited the same strengths in data richness, quantitative targets, phased execution, and iterative evaluation, reflecting their aligned high praise."
+    },
+    "improvements": [
+      "Explicitly address balancing service demands with educational goals amid clinical productivity pressures."
+    ]
+  },
+  "wasTruncated": false
+}

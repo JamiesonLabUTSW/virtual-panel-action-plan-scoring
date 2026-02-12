@@ -1,10 +1,11 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { createOpenAI } from "@ai-sdk/openai";
 import { CopilotRuntime, OpenAIAdapter, copilotRuntimeNodeHttpEndpoint } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkitnext/agent";
 import express, { type Request, type Response } from "express";
 import OpenAI from "openai";
-import { DummyDefaultAgent } from "./agents/dummy-default-agent";
 import { GradeDocumentAgent } from "./agents/grade-document-agent";
 import { exitIfInvalid, validateRequiredEnvVars } from "./config/env-validation";
 
@@ -41,13 +42,22 @@ const openaiAdapter = new OpenAIAdapter({
   model: AZURE_OPENAI_DEPLOYMENT,
 });
 
-// Initialize CopilotKit runtime with gradeDocument agent + dummy default agent
-// WORKAROUND: CopilotKit provider's CopilotListeners always looks for 'default' agent
-// We register a dummy one to prevent provider crash. Real fix: figure out multi-agent pattern.
+// Create Vercel AI SDK OpenAI provider pointing at Azure for the default chat agent
+const azureAIProvider = createOpenAI({
+  baseURL: `https://${AZURE_OPENAI_RESOURCE}.openai.azure.com/openai/v1/`,
+  apiKey: AZURE_OPENAI_API_KEY,
+  headers: { "api-key": AZURE_OPENAI_API_KEY },
+});
+
+// Initialize CopilotKit runtime with:
+// - "default": BuiltInAgent for post-grading chat (uses Azure OpenAI via Vercel AI SDK)
+// - "gradeDocument": Custom AbstractAgent for the multi-judge grading pipeline
 // biome-ignore lint/suspicious/noExplicitAny: CopilotKit's internal @ag-ui/client types conflict with explicit dep (documented in CLAUDE.md)
 const copilotRuntime = new CopilotRuntime({
   agents: {
-    default: new DummyDefaultAgent(),
+    default: new BuiltInAgent({
+      model: azureAIProvider(AZURE_OPENAI_DEPLOYMENT),
+    }),
     gradeDocument: new GradeDocumentAgent(),
   } as any,
 });
@@ -90,7 +100,7 @@ if (!existsSync(publicDir)) {
 // SPA fallback: serve index.html for any non-API routes
 // Note: This must be defined AFTER all API routes (both app.get and app.use)
 // to avoid shadowing API endpoints.
-app.get("*", (_req: Request, res: Response) => {
+app.get("*path", (_req: Request, res: Response) => {
   res.sendFile(path.join(publicDir, "index.html"), (err) => {
     if (err) {
       console.error("Failed to serve index.html:", err);

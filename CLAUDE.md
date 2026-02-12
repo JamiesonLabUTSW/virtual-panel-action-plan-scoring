@@ -44,6 +44,9 @@ then a consensus arbiter reconciles their scores. The full specification lives i
 
 ## Build & Run Commands
 
+**Express 5 / path-to-regexp:** Bare `"*"` wildcard routes error with "Missing parameter name". Use
+named wildcards: `app.get("*path", handler)` instead of `app.get("*", handler)`.
+
 ```bash
 # First time: all workspace package.json files must exist before installing
 # Install dependencies (monorepo: shared/, server/, client/)
@@ -189,6 +192,10 @@ No legacy `api-version` query params. Standard OpenAI SDK patterns apply.
 
 ## CopilotKit + Express Integration
 
+**AG-UI event ordering:** After emitting `RUN_ERROR`, do NOT emit `RUN_FINISHED` or any other events
+— AG-UI's verify layer throws `AGUIError: Cannot send event type 'RUN_FINISHED'`. After a terminal
+event (`RUN_ERROR` or `RUN_FINISHED`), only call `subscriber.complete()`.
+
 When integrating CopilotKit runtime with Express, the OpenAI client and
 `copilotRuntimeNodeHttpEndpoint` require `as any` casts due to SDK type incompatibilities
 (documented in official CopilotKit examples).
@@ -248,6 +255,11 @@ events as the grading pipeline progresses. The frontend subscribes via
   `display: none` if chat UI isn't needed yet.
 - **`running` from `useCoAgent`** means "requests are routed to this agent", **not** "agent is
   executing". Use `useCopilotChat().isLoading` for actual execution status.
+- **`agent.runAgent(data)` does NOT pass `data` as agent state** — CopilotKit sends `agent.state`
+  (the hook-managed state) as `input.state` in the HTTP body. To pass data to the server agent, call
+  `setState()` from `useCoAgent` before `agent.runAgent()`. The `setState` call synchronously
+  updates `agent.state` via `agent.setState()`, so it's available when `runAgent()` constructs the
+  request.
 
 ## Structured Output 3-Tier Fallback
 
