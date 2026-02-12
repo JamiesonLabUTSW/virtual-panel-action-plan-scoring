@@ -13,6 +13,7 @@
 
 import type { GradingState, JudgeState } from "@shared/types";
 import { runConsensus } from "./consensus-chain";
+import { checkContentSafety } from "./content-safety";
 import { RATER_A_EXAMPLES, RATER_B_EXAMPLES, RATER_C_EXAMPLES } from "./few-shot-sets";
 import { runJudge } from "./judge-chain";
 
@@ -99,6 +100,52 @@ export async function runGradingPipeline(input: PipelineInput): Promise<GradingS
   if (truncatedItems.length === 0) {
     const errorMsg = "No action items provided. At least 1 action item is required for evaluation.";
     console.error(`[run] FAILED proposal_id=${proposalId}: ${errorMsg}`);
+    emitState({
+      phase: "error",
+      judges: {},
+      error: errorMsg,
+    });
+    throw new Error(errorMsg);
+  }
+
+  // Content safety check: Screen proposal text for injection attempts and inappropriate content
+  // This is the ONLY untrusted user input in the system - all other inputs (rubric, few-shot
+  // examples, system prompts) are controlled server-side.
+  console.info("[content-safety] Screening proposal text...");
+  const proposalText = truncatedItems.join("\n\n");
+
+  try {
+    const safetyResult = await checkContentSafety(proposalText);
+
+    // Log result (never log proposal content)
+    if (safetyResult.isSafe) {
+      console.info(`[content-safety] result=safe latency=${safetyResult.latencyMs}ms`);
+    } else {
+      console.warn(
+        `[content-safety] result=blocked latency=${safetyResult.latencyMs}ms reason="${safetyResult.reason}"`
+      );
+
+      // Emit error state
+      const errorMsg =
+        "This proposal contains inappropriate content or invalid formatting. Please review and try again.";
+      emitState({
+        phase: "error",
+        judges: {},
+        error: errorMsg,
+      });
+      throw new Error(errorMsg);
+    }
+  } catch (error) {
+    // Re-throw content safety rejections as-is (already have error state emitted)
+    if (error instanceof Error && error.message.includes("inappropriate content")) {
+      throw error;
+    }
+
+    // Infrastructure errors (network, auth, rate limit) — emit error state with sanitized message
+    const errorMsg = "Unable to verify content safety. Please try again.";
+    console.error(
+      `[content-safety] FAILED: ${error instanceof Error ? error.message : String(error)}`
+    );
     emitState({
       phase: "error",
       judges: {},
