@@ -6,7 +6,7 @@ import { INITIAL_GRADING_STATE } from "@shared/types";
 import express, { type Request, type Response } from "express";
 import OpenAI from "openai";
 import { DummyDefaultAgent } from "./agents/dummy-default-agent";
-import { TestAgent } from "./agents/test-agent";
+import { GradeDocumentAgent } from "./agents/grade-document-agent";
 import { exitIfInvalid, validateRequiredEnvVars } from "./config/env-validation";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -45,14 +45,14 @@ const openaiAdapter = new OpenAIAdapter({
   model: AZURE_OPENAI_DEPLOYMENT,
 });
 
-// Initialize CopilotKit runtime with test agent + dummy default agent
+// Initialize CopilotKit runtime with gradeDocument agent + dummy default agent
 // WORKAROUND: CopilotKit provider's CopilotListeners always looks for 'default' agent
 // We register a dummy one to prevent provider crash. Real fix: figure out multi-agent pattern.
 // biome-ignore lint/suspicious/noExplicitAny: CopilotKit's internal @ag-ui/client types conflict with explicit dep (documented in CLAUDE.md)
 const copilotRuntime = new CopilotRuntime({
   agents: {
     default: new DummyDefaultAgent(),
-    testAgent: new TestAgent(),
+    gradeDocument: new GradeDocumentAgent(),
   } as any,
 });
 

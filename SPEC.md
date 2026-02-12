@@ -586,8 +586,10 @@ export async function runGradingPipeline({
   const items = actionItems.slice(0, maxItems);
   const wasTruncated = actionItems.length > maxItems;
 
-  // Phase 1-3: Run judges SEQUENTIALLY
-  // Sequential avoids Azure rate limits and gives clear UX progression.
+  // Phase 1-3: Run judges IN PARALLEL
+  // Parallel execution provides faster completion (~3x speedup). State emissions
+  // as each judge completes still provide progressive UX updates. Rate limit risk
+  // is acceptable for demo with limited concurrent users.
   const judges = [
     { id: "rater_a" as const, label: "The Professor", examples: RATER_A_EXAMPLES },
     { id: "rater_b" as const, label: "The Editor", examples: RATER_B_EXAMPLES },
@@ -596,16 +598,15 @@ export async function runGradingPipeline({
 
   const judgeResults: Record<string, JudgeState> = {};
 
+  // Initialize all judges as "running"
   for (const judge of judges) {
     judgeResults[judge.id] = { status: "running", label: judge.label };
-    emitState({
-      phase: judge.id,
-      judges: { ...judgeResults },
-      wasTruncated,
-    });
+  }
+  emitState({ phase: "evaluating", judges: { ...judgeResults }, wasTruncated });
 
+  // Execute all judges in parallel
+  const judgePromises = judges.map(async (judge) => {
     const startTime = Date.now();
-
     try {
       const result = await runJudge({
         proposalId,
@@ -614,18 +615,10 @@ export async function runGradingPipeline({
         actionItems: items,
         fewShotExamples: judge.examples,
       });
-
       const latencyMs = Date.now() - startTime;
-      judgeResults[judge.id] = {
-        status: "done",
-        label: judge.label,
-        result,
-        latencyMs,
-      };
-
+      judgeResults[judge.id] = { status: "done", label: judge.label, result, latencyMs };
       console.log(`[judge:${judge.id}] score=${result.overall_score} latency=${latencyMs}ms`);
-
-      emitState({ phase: judge.id, judges: { ...judgeResults } });
+      emitState({ judges: { ...judgeResults } });
     } catch (error) {
       const latencyMs = Date.now() - startTime;
       judgeResults[judge.id] = {
@@ -637,7 +630,9 @@ export async function runGradingPipeline({
       console.error(`[judge:${judge.id}] FAILED after ${latencyMs}ms:`, error);
       emitState({ judges: { ...judgeResults } });
     }
-  }
+  });
+
+  await Promise.all(judgePromises);
 
   // Phase 4: Consensus
   const successfulJudges = Object.entries(judgeResults)
@@ -1460,7 +1455,7 @@ In HF Spaces settings, add as **secrets** (not visible in UI):
 | --- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ------------- |
 | 1   | **Spike: CopilotKit + Azure v1 on Express**           | Minimal Express server with CopilotKit runtime using `OpenAIAdapter({ openai: azureV1Client })`. CopilotChat works in React. Served on port 7860 in Docker. **Validate:** CopilotKit streams over single endpoint (no GraphQL). Verify per-session state isolation.                               | 🔴 HIGH    | 1.5 days      |
 | 2   | **Spike: LangChain.js structured output on Azure v1** | `ChatOpenAI` with Azure v1 baseURL + `useResponsesApi: true`. Test `withStructuredOutput(JudgeOutput, { strict: true })` returns valid JSON from gpt-5.1-codex-mini. **Validate:** All 3 fallback tiers. Test that `temperature` and `maxTokens` are NOT passed. Confirm `maxOutputTokens` works. | 🔴 HIGH    | 1 day         |
-| 3   | **Judge pipeline**                                    | Orchestrator runs 3 judges sequentially with state emission. Hardcode a sample document and one calibration set. Verify state updates arrive in frontend via `useCoAgent`.                                                                                                                        | 🟡 MEDIUM  | 1 day         |
+| 3   | **Judge pipeline**                                    | Orchestrator runs 3 judges in parallel with progressive state emission. Hardcode a sample document and one calibration set. Verify state updates arrive in frontend via `useCoAgent`.                                                                                                             | 🟡 MEDIUM  | 1 day         |
 | 4   | **Consensus arbiter**                                 | Consensus prompt + schema. Verify: final_score within `[min, max]`, references judge rationales not document, mean/median computed correctly.                                                                                                                                                     | 🟢 LOW     | 0.5 day       |
 | 5   | **Frontend grading UI**                               | Timeline, JudgeCards (with calibration chips, evidence quotes), ConsensusPanel (with score row, agreement viz, download button). Wired to `useCoAgent` state.                                                                                                                                     | 🟡 MEDIUM  | 2 days        |
 | 6   | **Few-shot calibration sets**                         | Write 15 calibration examples (5 per rater) with evidence quotes. Test that different sets produce meaningfully different judge behavior.                                                                                                                                                         | 🟡 MEDIUM  | 1 day         |
@@ -1518,18 +1513,18 @@ must change before proceeding.
 
 ## Appendix B · Key Decisions Log
 
-| Decision                                               | Rationale                                                                                                                                                                                                          |
-| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Azure v1 API (not legacy api-version)**              | v1 uses standard OpenAI SDK patterns, eliminates Azure-specific adapter friction, aligns with Microsoft's recommended path for GPT-5.x models.                                                                     |
-| **`ChatOpenAI` not `AzureChatOpenAI` for grading**     | Azure v1 is OpenAI-SDK-compatible. Using `ChatOpenAI` with `baseURL` avoids known `AzureChatOpenAI` + Responses API bugs in LangChain. Reduces Azure-specific surface area.                                        |
-| **No `temperature` for judge variance**                | GPT-5.1-codex-mini is a reasoning model; `temperature` is unsupported. Judge variance comes from calibration sets, which is the correct experimental design anyway.                                                |
-| **Sequential judges, not parallel**                    | Avoids Azure rate limits. Gives clear UX progression. Parallel can be added as a config flag for paid endpoints.                                                                                                   |
-| **Consensus as constrained arbiter, not re-evaluator** | If consensus re-reads the proposal, the panel collapses into a single model call with extra steps. Constraining to `[min, max]` and requiring judge-rationale-based justification preserves the multi-judge value. |
-| **Domain pivot to medical residency evaluation**       | Real-world medical program action items from resources/ provide authentic domain context and realistic scoring variance. Per-item feedback format matches actual program evaluation workflows.                     |
-| **Per-item feedback (not criteria)**                   | Action items are the natural evaluation unit for program proposals. Per-item comments and scores provide more actionable feedback than abstract criterion scores.                                                  |
-| **3-tier structured output fallback**                  | Azure v1 + LangChain.js + GPT-5.1 is an undertested combination. Strategy-based fallback (json_schema → tool calling → json_object + Zod) is more robust than prompt-based retry.                                  |
-| **tsup server bundling**                               | Inlines `shared/` code into server bundle, eliminating Docker runtime path issues.                                                                                                                                 |
-| **CopilotKit single endpoint (no GraphQL)**            | GraphQL was removed in CopilotKit v1.50+. Spec language updated to reflect current architecture.                                                                                                                   |
+| Decision                                               | Rationale                                                                                                                                                                                                                              |
+| ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Azure v1 API (not legacy api-version)**              | v1 uses standard OpenAI SDK patterns, eliminates Azure-specific adapter friction, aligns with Microsoft's recommended path for GPT-5.x models.                                                                                         |
+| **`ChatOpenAI` not `AzureChatOpenAI` for grading**     | Azure v1 is OpenAI-SDK-compatible. Using `ChatOpenAI` with `baseURL` avoids known `AzureChatOpenAI` + Responses API bugs in LangChain. Reduces Azure-specific surface area.                                                            |
+| **No `temperature` for judge variance**                | GPT-5.1-codex-mini is a reasoning model; `temperature` is unsupported. Judge variance comes from calibration sets, which is the correct experimental design anyway.                                                                    |
+| **Parallel judges, not sequential**                    | Faster completion (~3x speedup). Progressive state emissions as each judge completes provide clear UX. Rate limit risk acceptable for demo with limited concurrent users. Sequential can be added as fallback for shared environments. |
+| **Consensus as constrained arbiter, not re-evaluator** | If consensus re-reads the proposal, the panel collapses into a single model call with extra steps. Constraining to `[min, max]` and requiring judge-rationale-based justification preserves the multi-judge value.                     |
+| **Domain pivot to medical residency evaluation**       | Real-world medical program action items from resources/ provide authentic domain context and realistic scoring variance. Per-item feedback format matches actual program evaluation workflows.                                         |
+| **Per-item feedback (not criteria)**                   | Action items are the natural evaluation unit for program proposals. Per-item comments and scores provide more actionable feedback than abstract criterion scores.                                                                      |
+| **3-tier structured output fallback**                  | Azure v1 + LangChain.js + GPT-5.1 is an undertested combination. Strategy-based fallback (json_schema → tool calling → json_object + Zod) is more robust than prompt-based retry.                                                      |
+| **tsup server bundling**                               | Inlines `shared/` code into server bundle, eliminating Docker runtime path issues.                                                                                                                                                     |
+| **CopilotKit single endpoint (no GraphQL)**            | GraphQL was removed in CopilotKit v1.50+. Spec language updated to reflect current architecture.                                                                                                                                       |
 
 ---
 

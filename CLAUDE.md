@@ -99,7 +99,7 @@ Azure OpenAI (gpt-5.1-codex-mini)
 
 - Frontend triggers `gradeDocument` agent via `useAgent({ agentId }).agent.runAgent()` (not
   `useCoAgent.run()` which is broken in v1.51) with explicit proposal parameters
-- Judges execute sequentially (avoids Azure rate limits, enables progressive UI updates)
+- Judges execute in parallel (faster completion, progressive state emissions as each completes)
 - Each judge completion emits a `STATE_SNAPSHOT` to the frontend via AG-UI
 - Consensus arbiter receives only judge outputs (not the original proposal) and constrains final
   score to `[min, max]` of judge scores
@@ -112,7 +112,7 @@ server/src/
   index.ts                    # Express setup, CopilotKit runtime mount
   agents/grade-document-agent.ts  # CopilotKit agent (AbstractAgent subclass)
   grading/
-    orchestrator.ts           # Sequential judge pipeline + state emission
+    orchestrator.ts           # Parallel judge pipeline + progressive state emission
     judge-chain.ts            # LangChain judge with 3-tier structured output fallback
     consensus-chain.ts        # LangChain consensus arbiter
     few-shot-sets.ts          # 15 calibration examples (5 per rater)

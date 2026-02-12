@@ -3,7 +3,15 @@ import type { ConsensusOutputType, JudgeOutputType } from "./schemas";
 /**
  * Phase represents the current state of the grading process
  */
-export type Phase = "idle" | "rater_a" | "rater_b" | "rater_c" | "consensus" | "done" | "error";
+export type Phase =
+  | "idle"
+  | "evaluating"
+  | "rater_a"
+  | "rater_b"
+  | "rater_c"
+  | "consensus"
+  | "done"
+  | "error";
 
 /**
  * JudgeState represents the status of a single judge's evaluation
@@ -43,20 +51,4 @@ export interface GradingState {
 export const INITIAL_GRADING_STATE: GradingState = {
   phase: "idle",
   judges: {},
-};
-
-/**
- * TestState for validating state emission pipeline (Phase 2.4)
- * TODO: Remove before Phase 4 when real grading UI is implemented
- */
-export interface TestState {
-  step: number;
-  message?: string;
-}
-
-/**
- * Initial state for test action
- */
-export const INITIAL_TEST_STATE: TestState = {
-  step: 0,
 };
