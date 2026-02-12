@@ -113,16 +113,26 @@ app.use("/api/copilotkit", gradingLimiter);
 // IMPORTANT: Mount at root (not app.use("/api/copilotkit", ...)) because
 // Express strips the mount prefix from req.url, but CopilotKit's internal
 // Hono router uses req.url to match sub-paths like /api/copilotkit/info.
-app.use(
-  copilotRuntimeNodeHttpEndpoint({
-    endpoint: "/api/copilotkit",
-    runtime: copilotRuntime,
-    serviceAdapter: openaiAdapter,
-  }) as any
-);
+// Guard with path check so non-CopilotKit requests fall through to static files.
+const copilotHandler = copilotRuntimeNodeHttpEndpoint({
+  endpoint: "/api/copilotkit",
+  runtime: copilotRuntime,
+  serviceAdapter: openaiAdapter,
+}) as any;
+
+app.use((req, res, next) => {
+  if (req.path.startsWith("/api/copilotkit")) {
+    return copilotHandler(req, res, next);
+  }
+  next();
+});
 
 // Serve static files from public directory (for production with client build)
-const publicDir = path.join(__dirname, "../public");
+// In dev: __dirname is src/, so ../public works (client/dist symlinked or co-located)
+// In prod (tsup CJS): __dirname resolves to cwd (/app), so try ./public first
+const publicDir = existsSync(path.join(__dirname, "public"))
+  ? path.join(__dirname, "public")
+  : path.join(__dirname, "../public");
 if (!existsSync(publicDir)) {
   console.warn("⚠ Public directory not found. Static files will not be served.");
   console.warn("  Run 'npm run build --workspace=@grading/client' first for production mode.");
