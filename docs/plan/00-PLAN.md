@@ -282,9 +282,9 @@ questions.
 
 **Scope:**
 
-- **Security:** Rate limiting (10 runs/IP/hour via `express-rate-limit`), request size limit (1MB),
-  document `<document>` tag wrapping with injection defense, verify Azure credentials never reach
-  the client
+- **Security:** Rate limiting (200 reqs/IP/hour via `express-rate-limit`, ~10 grading runs), request
+  size limit (5MB), document `<document>` tag wrapping with injection defense, verify Azure
+  credentials never reach the client
 - **Error handling:** All error states from SPEC §11 — 1-judge failure, 2+-judge failure, Azure
   timeout (30s), quota exceeded, structured output total failure, connection loss
 - **Observability:** Per-run stdout logging (timestamps, latencies, scores, agreement, structured

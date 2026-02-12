@@ -441,6 +441,8 @@ troubleshooting.
 ## Git & Tool Conventions
 
 - **glab mr create** uses `--target-branch` (not `--base` like GitHub CLI)
+- **glab label create** uses `--name` flag (not positional):
+  `glab label create --name "label" --color '#hex'`
 - **Feature branch naming:** `feat/<issue>-<description>` (e.g., `feat/9-init-repo`)
 - **npm workspaces** require all workspace `package.json` files to exist before `npm install`
 - **npm workspace commands** use full package name (e.g., `npm test --workspace=@shared/types`, not
