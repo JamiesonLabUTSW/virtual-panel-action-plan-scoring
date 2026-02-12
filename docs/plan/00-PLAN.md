@@ -1,3 +1,8 @@
+> **Domain Pivot (Phase 3+):** The evaluation domain has changed from generic document quality
+> grading to **medical residency program action item evaluation**. Resource files (rubric, action
+> items, ratings) live in `server/src/resources/`. Schemas now use the `log_review` format. See
+> SPEC.md for the updated specification.
+
 # Implementation Plan Overview
 
 This document breaks the Multi-Judge LLM Grading Demo into implementation phases. Each phase has its
@@ -161,25 +166,25 @@ least-tested path. Fallback: switch to Chat Completions API with `max_completion
 ## Phase 4 — Judge Pipeline & Consensus Arbiter
 
 **Goal:** Build the full grading orchestrator: three sequential judge calls with state emission,
-plus the consensus arbiter.
+plus the consensus arbiter, adapted to medical residency action item evaluation.
 
 **Scope:**
 
-- Create `server/src/grading/rubric.ts` with the shared rubric text (SPEC §4.3)
-- Create `server/src/grading/judge-chain.ts`: LangChain chain that takes
-  `{ documentText, rubricText, fewShotExamples }` and returns `JudgeOutput` via the 3-tier fallback
+- Create `server/src/grading/rubric.ts`: load shared rubric from `server/src/resources/rubric.txt`
+  at runtime (1-5 scoring scale with 5 anchor descriptions)
+- Create `server/src/grading/judge-chain.ts`: LangChain chain that takes proposal-oriented input
+  with action items and returns `JudgeOutput` (log_review format) via 3-tier fallback
 - Create `server/src/grading/consensus-chain.ts`: LangChain chain that takes 3 judge outputs and
   returns `ConsensusOutput`, constrained to `[min(scores), max(scores)]`
 - Create `server/src/grading/orchestrator.ts`: runs judges sequentially, emits `GradingState`
-  updates (phase transitions, per-judge status/result/latency) via CopilotKit
-  `context.emitStateUpdate`
-- Create `server/src/actions/grade-document.ts`: CopilotKit action with
-  `documentText`/`documentTitle` parameters that calls the orchestrator
-- Wire the action into the CopilotKit runtime
-- Use placeholder few-shot examples (1-2 per rater) for now
-- **Validate:** Frontend receives progressive state updates. Consensus `final_score` is within
-  `[min, max]`. Judge errors are handled gracefully (1 failure → continue, 2+ → error).
-- Add stdout logging: per-judge metrics, structured output tier used, consensus agreement level
+  updates via CopilotKit `context.emitStateUpdate`
+- Create `server/src/agents/grade-document-agent.ts`: CopilotKit agent with proposal-oriented
+  parameters that calls the orchestrator
+- Wire the agent into the CopilotKit runtime
+- Use placeholder few-shot examples (1-2 per rater) in new log_review format
+- **Validate:** Frontend receives progressive state updates. Judges evaluate action items correctly.
+  Judge errors handled gracefully (1 failure → continue, 2+ → error).
+- Add stdout logging: per-judge scores, action item evaluations, latencies
 
 **Deliverable:** Submitting a document from the frontend runs 3 judges + consensus, with live state
 streaming. All Zod schemas validate. Error degradation works.
@@ -193,29 +198,26 @@ judge/consensus quality is iterative but not blocking.
 
 ## Phase 5 — Frontend Grading UI
 
-**Goal:** Build the full grading interface: document input, progress timeline, judge cards with
-evidence, and consensus panel.
+**Goal:** Build the full grading interface: proposal input, progress timeline, judge cards with
+action item evaluations, and consensus panel.
 
 **Scope:**
 
-- `DocumentInput.tsx`: textarea + `.txt` file upload, live character count, `MAX_DOC_CHARS`
-  enforcement, submit button
+- `ProposalInput.tsx`: action item list input, proposal title, validation, submit button
 - `GradingTimeline.tsx`: horizontal stepper showing Rater A → Rater B → Rater C → Consensus, with
   status badges (pending/running/done/error) and score chips
 - `JudgeCard.tsx`: single judge result card with calibration chip (persona name + tendency), overall
-  score, confidence badge, per-criterion scores with evidence quotes, rationale, strengths,
-  improvements
+  score, per-action-item comments and scores, rationale
 - `JudgeCards.tsx`: responsive 3-column grid of `JudgeCard`
 - `ConsensusPanel.tsx`: full-width panel with final score (large), mean/median alongside, agreement
-  level visualization, spread indicator, disagreement analysis, reconciled per-criterion scores,
-  consolidated improvements
+  level visualization, spread indicator, disagreement analysis
 - `DownloadRunButton.tsx`: exports full `GradingState` as JSON file
 - Wire all components to `useCoAgent<GradingState>` state and `useCoAgentStateRender` for
   in-progress rendering
 - Visual design per SPEC §7.5: score colors (1=red → 5=green), timeline animations, card min-widths
 
 **Deliverable:** Complete grading UI that updates in real-time as the backend pipeline runs. All
-judge data (evidence quotes, criteria, rationale) is visible and well-formatted.
+judge data (action item evaluations, rationale) is visible and well-formatted.
 
 **Risk:** MEDIUM — mostly UI work, but `useCoAgent`/`useCoAgentStateRender` hook behavior needs to
 match expected patterns.
@@ -226,24 +228,22 @@ match expected patterns.
 
 ## Phase 6 — Few-Shot Calibration Sets
 
-**Goal:** Author the 15 calibration examples (5 per rater) that give each judge its distinct
-evaluation personality.
+**Goal:** Format and select calibration examples from resource data (5 of 8 per rater), and validate
+that calibration produces meaningful rater differentiation using holdout specialties.
 
 **Scope:**
 
 - Create `server/src/grading/few-shot-sets.ts` with 5 examples per rater (15 total)
-- Each example: document excerpt (100-200 words) + complete `JudgeOutput` JSON
-- Score range coverage per rater: at least one each of low (1-2), mid (3), high (4-5)
+- Each example: action item document + rating JSON from `server/src/resources/`
+- Score range coverage per rater: selections optimized for individual score coverage (2-5 or 3-5)
 - Consistent voice per rater persona (Professor, Editor, Practitioner)
-- Include borderline cases to train confidence levels (0.6 for borderline, 0.9 for clear)
-- Evidence quotes in every example
-- **Validate:** Run the full pipeline with all 3 calibration sets and verify that different raters
-  produce meaningfully different scores/rationales for the same document. The Professor should
-  penalize structure/logic issues; the Editor should penalize clarity/prose; the Practitioner should
-  penalize vague claims.
+- **Validate:** Run the full pipeline with all 3 calibration sets against holdout specialties and
+  verify that different raters produce meaningfully different scores/rationales. Each rater should
+  exhibit their calibrated tendencies (Professor strict on structure, Editor on clarity,
+  Practitioner on actionability).
 
-**Deliverable:** 15 calibration examples. Demonstrated rater differentiation on at least 2 test
-documents.
+**Deliverable:** 15 formatted few-shot examples (5 per rater, selected from 8 specialties).
+Validated rater differentiation using 3 holdout specialties per rater.
 
 **Risk:** MEDIUM — writing good calibration examples is iterative. The examples must be specific
 enough to steer model behavior without being so rigid that they override the rubric.
@@ -287,8 +287,8 @@ questions.
   the client
 - **Error handling:** All error states from SPEC §11 — 1-judge failure, 2+-judge failure, Azure
   timeout (30s), quota exceeded, structured output total failure, connection loss
-- **Observability:** Per-run stdout logging (timestamps, latencies, scores, confidence, agreement,
-  structured output tier, errors). Download Run JSON button.
+- **Observability:** Per-run stdout logging (timestamps, latencies, scores, agreement, structured
+  output tier, errors). Download Run JSON button.
 - **Docker:** Multi-stage Dockerfile (client build → server build → runtime). Verify `@shared`
   bundling in tsup eliminates runtime path issues.
 - **HF Spaces:** `README.md` with frontmatter (sdk: docker, app_port: 7860), secrets config for

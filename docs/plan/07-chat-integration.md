@@ -135,13 +135,13 @@ accurate, evidence-grounded responses.
 
 **Test scenarios:**
 
-| Question                                                    | Expected Behavior                                                                                                                                |
-| ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| "Why did Rater A give a lower score than Rater C?"          | Response references both raters' rationales, cites their evidence quotes, and explains the difference in terms of their calibration perspectives |
-| "What should I improve?"                                    | Response synthesizes improvement suggestions from all judges and consensus, prioritized by agreement                                             |
-| "What evidence did the judges cite for my Reasoning score?" | Response lists evidence quotes from each judge's Reasoning criterion                                                                             |
-| "How confident were the judges?"                            | Response lists confidence values and explains what they mean using the operational scale                                                         |
-| "Is my document good enough?"                               | Response frames the answer in terms of the rubric, not absolute judgments, citing specific scores and evidence                                   |
+| Question                                              | Expected Behavior                                                                                                           |
+| ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| "Why did Rater A give a lower score than Rater C?"    | Response references both raters' item-level comments and explains the difference in terms of their calibration perspectives |
+| "What should I improve?"                              | Response synthesizes improvement suggestions from all judges and consensus, prioritized by agreement                        |
+| "What feedback did the judges give on action item 2?" | Response lists each judge's comment and score for that action item                                                          |
+| "How well did the judges agree?"                      | Response describes the agreement level (strong/moderate/weak), spread, and disagreement analysis                            |
+| "Is my proposal good enough?"                         | Response frames the answer in terms of the rubric, not absolute judgments, citing specific scores and item-level feedback   |
 
 **Acceptance criteria:**
 

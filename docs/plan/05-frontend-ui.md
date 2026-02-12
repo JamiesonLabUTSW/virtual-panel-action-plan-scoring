@@ -298,8 +298,8 @@ Update `client/src/components/GradingView.tsx`:
   - `"idle"`: Show `<DocumentInput onSubmit={handleStartGrading} />`
   - Any other phase: Show `<GradingTimeline>`, `<JudgeCards>`, and conditionally
     `<ConsensusPanel>` + `<DownloadRunButton>`
-- `handleStartGrading` calls `run({ documentText, documentTitle })`
-- Add a "Grade Another Document" button when `phase === "done"` that resets state to idle
+- `handleStartGrading` calls `run({ proposal })` with the proposal object (id, title, actionItems)
+- Add a "Grade Another Proposal" button when `phase === "done"` that resets state to idle
 - Layout: main content area (left) with space for chat sidebar (right) — sidebar wired in Phase 7
 
 Update `client/src/App.tsx`:

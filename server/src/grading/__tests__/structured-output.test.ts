@@ -1,6 +1,5 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
-import type OpenAI from "openai";
 import { StructuredOutputError } from "../structured-output-errors";
 
 /**
@@ -177,7 +176,7 @@ describe("invokeWithStructuredOutput", () => {
       invokeWithStructuredOutput<TestType>(TestSchema, {
         system: "You are a test assistant",
         user: "Generate a test response",
-      }),
+      })
     ).rejects.toThrow(StructuredOutputError);
 
     // Verify all three tiers were attempted
@@ -201,7 +200,7 @@ describe("invokeWithStructuredOutput", () => {
       invokeWithStructuredOutput<TestType>(TestSchema, {
         system: "You are a test assistant",
         user: "Generate a test response",
-      }),
+      })
     ).rejects.toThrow();
   });
 
@@ -222,7 +221,7 @@ describe("invokeWithStructuredOutput", () => {
       invokeWithStructuredOutput<TestType>(TestSchema, {
         system: "You are a test assistant",
         user: "Generate a test response",
-      }),
+      })
     ).rejects.toThrow();
   });
 
@@ -247,7 +246,7 @@ describe("invokeWithStructuredOutput", () => {
     expect(mockCreate).toHaveBeenCalledWith(
       expect.objectContaining({
         max_output_tokens: 500,
-      }),
+      })
     );
   });
 
@@ -267,7 +266,7 @@ describe("invokeWithStructuredOutput", () => {
       invokeWithStructuredOutput<TestType>(TestSchema, {
         system: "You are a test assistant",
         user: "Generate a test response",
-      }),
+      })
     ).rejects.toThrow(StructuredOutputError);
   });
 
@@ -288,7 +287,7 @@ describe("invokeWithStructuredOutput", () => {
       invokeWithStructuredOutput<TestType>(TestSchema, {
         system: "You are a test assistant",
         user: "Generate a test response",
-      }),
+      })
     ).rejects.toThrow(StructuredOutputError);
   });
 
@@ -308,7 +307,7 @@ describe("invokeWithStructuredOutput", () => {
       invokeWithStructuredOutput<TestType>(TestSchema, {
         system: "You are a test assistant",
         user: "Generate a test response",
-      }),
+      })
     ).rejects.toThrow(StructuredOutputError);
   });
 });

@@ -111,10 +111,9 @@ or a standalone script):
 **Acceptance criteria:**
 
 - Tier 1 returns a valid `JudgeOutputType` object
-- All fields are present and correctly typed: `overall_score` (1-5 int), `confidence` (0-1 float),
-  `criteria` (exactly 3 items), `key_evidence` (2-6 items), `strengths` (1-3 items), `improvements`
-  (1-3 items)
-- `evidence_quotes` per criterion contain actual text from the input document
+- All fields are present and correctly typed: `proposal_id` (int), `evaluator_id` (int),
+  `evaluator_name` (string), `items` (array of ActionItemReview, min 1), `overall_score` (1-5 int)
+- Each item has `action_item_id` (int), `comment` (string), `score` (1-5 int)
 - The Zod `.parse()` call succeeds on the raw result
 
 **Failure handling:**

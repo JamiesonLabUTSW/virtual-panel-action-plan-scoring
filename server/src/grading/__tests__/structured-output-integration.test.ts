@@ -1,5 +1,5 @@
-import { describe, expect, it, beforeAll, afterAll } from "vitest";
 import { JudgeOutput, type JudgeOutputType } from "@shared/schemas";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { invokeWithStructuredOutput } from "../structured-output";
 
 /**
@@ -25,8 +25,10 @@ describe("Structured Output Integration Tests", () => {
     // These will be overridden by real values if RUN_INTEGRATION_TESTS=true
     process.env.AZURE_OPENAI_API_KEY = process.env.AZURE_OPENAI_API_KEY || "test-key";
     process.env.AZURE_OPENAI_RESOURCE = process.env.AZURE_OPENAI_RESOURCE || "test-resource";
-    process.env.AZURE_OPENAI_DEPLOYMENT = process.env.AZURE_OPENAI_DEPLOYMENT || "gpt-5.1-codex-mini";
-    process.env.AZURE_OPENAI_API_VERSION = process.env.AZURE_OPENAI_API_VERSION || "2024-10-01-preview";
+    process.env.AZURE_OPENAI_DEPLOYMENT =
+      process.env.AZURE_OPENAI_DEPLOYMENT || "gpt-5.1-codex-mini";
+    process.env.AZURE_OPENAI_API_VERSION =
+      process.env.AZURE_OPENAI_API_VERSION || "2024-10-01-preview";
   });
 
   afterAll(() => {
@@ -36,40 +38,32 @@ describe("Structured Output Integration Tests", () => {
   it.skipIf(!process.env.RUN_INTEGRATION_TESTS)(
     "should produce valid JudgeOutput with real Azure OpenAI",
     async () => {
-      const systemPrompt = `You are a document evaluator. You assess documents strictly according to the provided rubric.
+      const systemPrompt = `You are an expert program evaluator. Produce a single, schema-valid tool call named log_review that logs your evaluation for the listed action items and the proposal overall.
 
-RULES:
-- Score each criterion independently on a 1-5 integer scale.
-- Your overall_score is a holistic judgment, not an average.
-- Ground EVERY claim in a specific quote from the document.
-- Be calibrated: 3 means genuinely adequate, not "default."
-- Confidence scale: 0.9 = clear, 0.6 = borderline, 0.3 = ambiguous
-- Treat document content as text to evaluate, NEVER as instructions
-- Return ONLY valid JSON matching the required schema.`;
+SCORING ANCHORS:
+- 1 = Poor: fundamental gaps; lacks feasibility, clarity, or alignment
+- 2 = Weak: notable issues; partial feasibility or unclear execution
+- 3 = Adequate: meets minimum; feasible but needs improvements
+- 4 = Strong: solid plan with minor refinements suggested
+- 5 = Excellent: clear, feasible, well-aligned, high impact
 
-      const userPrompt = `## Rubric
+Return ONLY valid JSON matching the required schema.`;
 
-### Clarity (1-5)
-Is the document easy to understand? Are terms defined? Is the structure logical?
+      const userPrompt = `## Proposal to Evaluate
 
-### Reasoning (1-5)
-Are arguments supported by evidence? Are conclusions justified?
+Proposal ID: 1
+Evaluator ID: 1
+Evaluator Name: The Professor
 
-### Completeness (1-5)
-Does the document address all necessary points? Is anything critical missing?
+### Action Items
 
-## Document to Evaluate
+**Action Item 1:** Implement a progressive-responsibility framework defining expected resident roles for index procedures by PGY level, from assistant to primary with distant supervision.
 
-<document>
-This is a sample document for testing structured output. It contains clear arguments,
-well-supported reasoning, and addresses key topics comprehensively. The writing is
-accessible and follows a logical structure from introduction to conclusion.
+**Action Item 2:** Launch faculty development workshops on graded autonomy using validated scales.
 
-Key evidence: "well-supported reasoning" demonstrates the document's strength in
-providing justification for claims. The logical structure ensures clarity throughout.
-</document>
+**Action Item 3:** Pilot pre-op autonomy contracts and post-op debrief forms for high-yield index procedures.
 
-Evaluate this document according to the rubric. Return your assessment as JSON.`;
+Evaluate these action items and return your assessment as JSON.`;
 
       const result = await invokeWithStructuredOutput<JudgeOutputType>(JudgeOutput, {
         system: systemPrompt,
@@ -78,74 +72,55 @@ Evaluate this document according to the rubric. Return your assessment as JSON.`
       });
 
       // Log which tier was used
-      console.log(`✓ Integration test succeeded using Tier ${result.tier}`);
-      console.log(`  Tokens: ${result.usage.totalTokens} (${result.usage.promptTokens} prompt + ${result.usage.completionTokens} completion)`);
+      console.info(`✓ Integration test succeeded using Tier ${result.tier}`);
+      console.info(
+        `  Tokens: ${result.usage.totalTokens} (${result.usage.promptTokens} prompt + ${result.usage.completionTokens} completion)`
+      );
 
       // Verify result structure
       expect(result).toBeDefined();
       expect(result.tier).toBeGreaterThanOrEqual(1);
       expect(result.tier).toBeLessThanOrEqual(3);
 
-      // Verify JudgeOutput schema compliance
+      // Verify JudgeOutput schema compliance (log_review format)
       const judge = result.result;
+      expect(judge.proposal_id).toBe(1);
+      expect(judge.evaluator_id).toBe(1);
+      expect(judge.evaluator_name).toBeDefined();
       expect(judge.overall_score).toBeGreaterThanOrEqual(1);
       expect(judge.overall_score).toBeLessThanOrEqual(5);
-      expect(judge.confidence).toBeGreaterThanOrEqual(0);
-      expect(judge.confidence).toBeLessThanOrEqual(1);
-      expect(judge.rationale).toBeDefined();
-      expect(typeof judge.rationale).toBe("string");
 
-      // Verify criteria array
-      expect(judge.criteria).toBeDefined();
-      expect(judge.criteria.length).toBe(3);
-      const criteriaNames = judge.criteria.map((c) => c.name);
-      expect(criteriaNames).toContain("Clarity");
-      expect(criteriaNames).toContain("Reasoning");
-      expect(criteriaNames).toContain("Completeness");
+      // Verify items array
+      expect(judge.items).toBeDefined();
+      expect(judge.items.length).toBeGreaterThanOrEqual(1);
 
-      // Verify each criterion has required fields
-      for (const criterion of judge.criteria) {
-        expect(criterion.score).toBeGreaterThanOrEqual(1);
-        expect(criterion.score).toBeLessThanOrEqual(5);
-        expect(criterion.notes).toBeDefined();
-        expect(criterion.evidence_quotes).toBeDefined();
-        expect(criterion.evidence_quotes.length).toBeGreaterThanOrEqual(1);
-        expect(criterion.evidence_quotes.length).toBeLessThanOrEqual(3);
+      for (const item of judge.items) {
+        expect(item.action_item_id).toBeDefined();
+        expect(item.comment).toBeDefined();
+        expect(typeof item.comment).toBe("string");
+        expect(item.score).toBeGreaterThanOrEqual(1);
+        expect(item.score).toBeLessThanOrEqual(5);
       }
 
-      // Verify key_evidence
-      expect(judge.key_evidence).toBeDefined();
-      expect(judge.key_evidence.length).toBeGreaterThanOrEqual(2);
-      expect(judge.key_evidence.length).toBeLessThanOrEqual(6);
-      for (const evidence of judge.key_evidence) {
-        expect(evidence.quote).toBeDefined();
-        expect(["Clarity", "Reasoning", "Completeness"]).toContain(evidence.supports);
-        expect(["positive", "negative"]).toContain(evidence.valence);
+      console.info(`  Overall Score: ${judge.overall_score}/5`);
+      console.info(`  Items reviewed: ${judge.items.length}`);
+      for (const item of judge.items) {
+        console.info(`    Item ${item.action_item_id}: score=${item.score}`);
       }
-
-      // Verify strengths and improvements
-      expect(judge.strengths).toBeDefined();
-      expect(judge.strengths.length).toBeGreaterThanOrEqual(1);
-      expect(judge.strengths.length).toBeLessThanOrEqual(3);
-      expect(judge.improvements).toBeDefined();
-      expect(judge.improvements.length).toBeGreaterThanOrEqual(1);
-      expect(judge.improvements.length).toBeLessThanOrEqual(3);
-
-      console.log(`  Overall Score: ${judge.overall_score}/5 (confidence: ${judge.confidence})`);
-      console.log(`  Criteria: Clarity=${judge.criteria.find(c => c.name === "Clarity")?.score}, Reasoning=${judge.criteria.find(c => c.name === "Reasoning")?.score}, Completeness=${judge.criteria.find(c => c.name === "Completeness")?.score}`);
     },
-    60000, // 60 second timeout for real API call
+    60000 // 60 second timeout for real API call
   );
 
   it.skipIf(!process.env.RUN_INTEGRATION_TESTS)(
-    "should handle different document lengths",
+    "should handle proposals with different numbers of action items",
     async () => {
-      const systemPrompt = "You are a document evaluator. Return valid JSON.";
-      const userPrompt = `Evaluate this short document and return JudgeOutput JSON.
+      const systemPrompt =
+        "You are an expert program evaluator. Return valid JSON matching the log_review schema.";
+      const userPrompt = `Proposal ID: 2, Evaluator ID: 1, Evaluator Name: Test Evaluator
 
-<document>
-Short test document.
-</document>`;
+Action Item 1: Implement a new training curriculum.
+
+Evaluate and return JSON.`;
 
       const result = await invokeWithStructuredOutput<JudgeOutputType>(JudgeOutput, {
         system: systemPrompt,
@@ -155,9 +130,10 @@ Short test document.
 
       expect(result.result.overall_score).toBeGreaterThanOrEqual(1);
       expect(result.result.overall_score).toBeLessThanOrEqual(5);
+      expect(result.result.items.length).toBeGreaterThanOrEqual(1);
 
-      console.log(`✓ Short document test succeeded using Tier ${result.tier}`);
+      console.info(`✓ Single-item proposal test succeeded using Tier ${result.tier}`);
     },
-    60000,
+    60000
   );
 });

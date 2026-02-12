@@ -217,9 +217,9 @@ Server error handling:
 
 Verify/add logging in `server/src/grading/orchestrator.ts`:
 
-- Per-judge log: `[judge:rater_a] score=X confidence=Y latency=Zms tier=N`
+- Per-judge log: `[judge:rater_a] overall_score=X latency=Zms tier=N`
 - Per-consensus log: `[consensus] final_score=X agreement=Y spread=Z`
-- Run-level log: `[run] started doc_chars=N`
+- Run-level log: `[run] started proposal_id=N action_items=M`
 - Run-level log: `[run] completed total_latency=Nms judges_succeeded=X judges_failed=Y`
 - Error log: `[judge:rater_a] FAILED after Nms: <error message>`
 - Include structured output tier used per judge (from Phase 3.7's return value)

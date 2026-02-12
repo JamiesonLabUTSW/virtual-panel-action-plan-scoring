@@ -21,9 +21,10 @@ export interface JudgeState {
  */
 export interface GradingState {
   phase: Phase;
-  document?: {
-    text: string;
+  proposal?: {
+    id: number;
     title?: string;
+    actionItems: string[];
     wasTruncated?: boolean;
   };
   judges: {

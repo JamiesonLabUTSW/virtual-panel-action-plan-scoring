@@ -38,7 +38,6 @@ describe("OpenAI Client with Azure Responses API (Issue #30)", () => {
   });
 
   it("should construct correct Azure baseURL from environment variables", () => {
-    // biome-ignore lint/style/noNonNullAssertion: env vars guaranteed from beforeAll
     const testClient = new OpenAI({
       apiKey: process.env.AZURE_OPENAI_API_KEY!,
       baseURL: `https://${process.env.AZURE_OPENAI_RESOURCE}.openai.azure.com/openai/v1/`,
@@ -46,9 +45,7 @@ describe("OpenAI Client with Azure Responses API (Issue #30)", () => {
 
     // Verify the instance has the expected properties
     expect(testClient).toBeDefined();
-    expect(testClient.baseURL).toBe(
-      "https://test-resource.openai.azure.com/openai/v1/",
-    );
+    expect(testClient.baseURL).toBe("https://test-resource.openai.azure.com/openai/v1/");
   });
 
   it("should use max_output_tokens for reasoning models (Responses API)", () => {
@@ -95,7 +92,11 @@ describe("OpenAI Client with Azure Responses API (Issue #30)", () => {
 
   it("should correctly export the client, MODEL, and MAX_COMPLETION_TOKENS", async () => {
     // Dynamically import to get a fresh instance with test env vars
-    const { client: importedClient, MODEL: importedModel, MAX_COMPLETION_TOKENS } = await import("../llm");
+    const {
+      client: importedClient,
+      MODEL: importedModel,
+      MAX_COMPLETION_TOKENS,
+    } = await import("../llm");
 
     expect(importedClient).toBeDefined();
     expect(importedModel).toBe("gpt-5.1-codex-mini");
@@ -133,12 +134,9 @@ describe("OpenAI Client with Azure Responses API (Issue #30)", () => {
 
       // Verify response structure (Responses API format)
       expect(response).toBeDefined();
-      expect(response.content).toBeDefined();
-      expect(response.content.length).toBeGreaterThan(0);
-      expect(response.content[0].type).toBe("text");
-      expect(response.content[0].text).toBeDefined();
-      expect(typeof response.content[0].text).toBe("string");
-      expect(response.content[0].text.length).toBeGreaterThan(0);
+      expect(response.output_text).toBeDefined();
+      expect(typeof response.output_text).toBe("string");
+      expect(response.output_text.length).toBeGreaterThan(0);
 
       // Verify response came from the correct model
       expect(response.model).toBeDefined();

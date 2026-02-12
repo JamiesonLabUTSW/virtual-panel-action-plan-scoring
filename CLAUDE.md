@@ -15,9 +15,10 @@ features → deploy). Before starting work, read:
 ## Key References
 
 - `SPEC.md` — Complete specification (source of truth). Key sections:
-  - §4.4-4.5: Zod schemas (JudgeOutput, ConsensusOutput) — **copy exactly, do not refactor or
-    rename**
-  - §4.6: Prompt templates (judge system/user, consensus system/user) — **copy exactly**
+  - §4.4-4.5: Zod schemas (ActionItemReview, JudgeOutput, ConsensusOutput) — **copy exactly, do not
+    refactor or rename**
+  - §4.6: Prompt templates (judge system prompt loaded from `server/src/resources/rubric.txt`, judge
+    user, consensus system/user) — **copy exactly**
   - §5.1-5.4: Backend implementation with code samples
   - §7.1-7.5: Frontend implementation with code samples
   - §9.1-9.4: Project layout, path aliases, tsup config, Dockerfile
@@ -29,8 +30,8 @@ features → deploy). Before starting work, read:
 
 Multi-Judge LLM Grading Demo — a single-container Hugging Face Space (Docker SDK, port 7860) that
 runs a calibrated LLM-as-a-judge panel. Three AI judges (each calibrated with a different human
-rater's few-shot examples) evaluate a document against a shared rubric, then a consensus arbiter
-reconciles their scores. The full specification lives in `SPEC.md`.
+rater's few-shot examples) evaluate medical residency program action items against a shared rubric,
+then a consensus arbiter reconciles their scores. The full specification lives in `SPEC.md`.
 
 ## Stack
 
@@ -97,11 +98,10 @@ Azure OpenAI (gpt-5.1-codex-mini)
 **Key flows:**
 
 - Frontend triggers `gradeDocument` agent via `useAgent({ agentId }).agent.runAgent()` (not
-  `useCoAgent.run()` which is broken in v1.51) with explicit `documentText`/`documentTitle`
-  parameters
+  `useCoAgent.run()` which is broken in v1.51) with explicit proposal parameters
 - Judges execute sequentially (avoids Azure rate limits, enables progressive UI updates)
 - Each judge completion emits a `STATE_SNAPSHOT` to the frontend via AG-UI
-- Consensus arbiter receives only judge outputs (not the original document) and constrains final
+- Consensus arbiter receives only judge outputs (not the original proposal) and constrains final
   score to `[min, max]` of judge scores
 
 ## Project Layout
@@ -117,6 +117,13 @@ server/src/
     consensus-chain.ts        # LangChain consensus arbiter
     few-shot-sets.ts          # 15 calibration examples (5 per rater)
     rubric.ts                 # Shared rubric text
+  resources/
+    rubric.txt                # Evaluation rubric (system prompt)
+    action_item/              # 8 medical specialty action item documents
+    ratings/                  # 24 rater JSON files (8 per rater)
+      rater_a/
+      rater_b/
+      rater_c/
 client/src/
   App.tsx                     # CopilotKit provider
   components/
@@ -340,22 +347,23 @@ Client Vite proxy is pre-configured in `client/vite.config.ts`:
 
 Three raters with distinct calibration personas:
 
-- **Rater A "The Professor"** — strict on structure & logic, lenient on style
-- **Rater B "The Editor"** — strict on clarity & prose, lenient on depth
-- **Rater C "The Practitioner"** — strict on actionability & evidence, lenient on formality
+- **Rater A "The Professor"** — strict on structure, quantitative targets, and metric specificity
+- **Rater B "The Editor"** — generous on feasibility and clarity, focuses on achievability
+- **Rater C "The Practitioner"** — strict on actionability, data richness, and practical impact
 
-Shared rubric: Clarity (1-5), Reasoning (1-5), Completeness (1-5). `overall_score` is holistic, not
-an average.
+Shared rubric: 1-5 scale (Poor/Weak/Adequate/Strong/Excellent) loaded from
+`server/src/resources/rubric.txt`. `overall_score` is holistic, not an average of item scores.
 
-Consensus arbiter references judge rationales (not the document), outputs `agreement_level`
+Consensus arbiter references judge rationales (not the original proposal), outputs `agreement_level`
 (strong/moderate/weak), and deduplicates improvement suggestions.
 
 ## Error Handling Conventions
 
 - Single judge failure → continue grading with remaining judges, show error in UI
 - 2+ judge failures → throw error, require retry
-- Document text wrapped in `<document>` tags with injection defense in system prompt
-- Never log document content; log only per-run metrics (scores, latency, confidence)
+- Proposal content provided as structured action items; system prompt loaded from
+  `server/src/resources/rubric.txt` includes injection defense
+- Never log proposal content; log only per-run metrics (scores, latency)
 
 ## Code Quality Tooling
 
