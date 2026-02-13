@@ -17,7 +17,7 @@ pinned: false
 The project demonstrates a method for simulating expert evaluator panels using example-conditioned
 large language model (LLM) personas and aggregating their outputs into a consensus evaluation.
 
-[![Watch the demo](https://img.youtube.com/vi/yYaZP-fsjMo/maxresdefault.jpg)](https://www.youtube.com/watch?v=yYaZP-fsjMo)
+[![Demo Preview](img/preview.png)](https://www.youtube.com/watch?v=yYaZP-fsjMo)
 
 ---
 
