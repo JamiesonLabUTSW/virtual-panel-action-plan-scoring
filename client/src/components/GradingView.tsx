@@ -103,13 +103,42 @@ Help the user understand the results by:
   return (
     <div className="flex-1 flex flex-col">
       {/* Header */}
-      <header className="border-b border-surface-700 px-6 py-5">
-        <h1 className="text-2xl font-bold bg-gradient-to-r from-accent to-purple-400 bg-clip-text text-transparent">
-          Multi-Judge Grading Panel
-        </h1>
-        <p className="text-sm text-text-secondary mt-1">
-          AI-calibrated evaluation by three expert judges with consensus arbitration
-        </p>
+      <header
+        className="border-b border-[var(--border-structural)] px-6 py-6"
+        style={{ background: "linear-gradient(to bottom, #0a1628, var(--color-surface-900))" }}
+      >
+        <div className="flex items-center gap-4">
+          {/* UTSW logo */}
+          <svg
+            className="h-10 w-10 flex-shrink-0"
+            viewBox="0 0 40 40"
+            fill="none"
+            role="img"
+            aria-labelledby="utsw-logo-title"
+          >
+            <title id="utsw-logo-title">UT Southwestern</title>
+            <rect width="40" height="40" rx="8" fill="#004c97" />
+            <text
+              x="20"
+              y="24"
+              textAnchor="middle"
+              fill="white"
+              fontSize="11"
+              fontWeight="700"
+              fontFamily="Open Sans, sans-serif"
+            >
+              UTSW
+            </text>
+          </svg>
+          <div>
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+              Virtual Panel Action Plan Scoring
+            </h1>
+            <p className="text-base text-text-secondary mt-1">
+              Jamieson Lab, UT Southwestern &middot; 2026 ACGME Annual Educational Conference
+            </p>
+          </div>
+        </div>
       </header>
 
       <div className="flex-1 flex overflow-hidden">
@@ -122,7 +151,7 @@ Help the user understand the results by:
 
             {/* Grading results */}
             {showResults && (
-              <div className="space-y-8">
+              <div className="space-y-10">
                 {/* Timeline */}
                 {state && <GradingTimeline state={state} />}
 
@@ -202,12 +231,12 @@ Help the user understand the results by:
 
                 {/* Done actions */}
                 {phase === "done" && state && (
-                  <div className="flex items-center justify-between pt-4 border-t border-surface-700 animate-fade-in">
+                  <div className="flex items-center justify-between pt-4 border-t border-[var(--border-internal)] animate-fade-in">
                     <DownloadRunButton state={state} />
                     <button
                       type="button"
                       onClick={handleReset}
-                      className="inline-flex items-center gap-2 text-sm bg-accent hover:bg-accent-light
+                      className="inline-flex items-center gap-2 text-sm bg-primary hover:bg-accent
                         text-white font-medium rounded-lg px-4 py-2 transition-colors"
                     >
                       <svg

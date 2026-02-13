@@ -58,7 +58,7 @@ function ConvergenceSVG({ consensus }: { consensus: ConsensusOutputType }) {
               cx={leftX}
               cy={y}
               r={14}
-              fill={isFailed ? "#374151" : entry.persona.accentHex}
+              fill={isFailed ? "#1e2d47" : entry.persona.accentHex}
               opacity={isFailed ? 0.5 : 1}
             />
 
@@ -123,17 +123,17 @@ export default function ConsensusPanel({ state, highlighted = false }: Consensus
   return (
     <section className="animate-fade-in-up">
       <div className="mb-6">
-        <h2 className="text-xs font-semibold uppercase tracking-widest text-text-secondary mb-1">
+        <h2 className="text-sm font-semibold uppercase tracking-widest text-text-secondary mb-2">
           Consensus Result
         </h2>
-        <p className="text-sm text-text-secondary/70">
+        <p className="text-sm text-text-secondary">
           The arbiter reconciles all judge evaluations into a final assessment
         </p>
       </div>
 
       <div
-        className={`bg-surface-800 rounded-xl border border-surface-700 p-6 space-y-6 ${
-          highlighted ? "ring-2 ring-accent" : ""
+        className={`bg-surface-800 rounded-xl border border-[var(--border-card)] p-6 space-y-6 ${
+          highlighted ? "ring-2 ring-[rgba(0,158,226,0.40)]" : ""
         }`}
       >
         {/* SVG Convergence */}
@@ -186,27 +186,27 @@ export default function ConsensusPanel({ state, highlighted = false }: Consensus
         </div>
 
         {/* Disagreement analysis */}
-        <div className="border-l-4 border-surface-600 pl-4 py-2 bg-surface-900/50 rounded-r-lg">
-          <p className="text-xs font-semibold text-text-secondary uppercase tracking-wider mb-2">
+        <div className="border-l-4 border-[rgba(0,158,226,0.30)] pl-4 py-2 bg-surface-900/50 rounded-r-lg">
+          <p className="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-2">
             Why Judges Differed
           </p>
-          <p className="text-sm text-text-secondary/80 leading-relaxed">
+          <p className="text-sm text-text-secondary leading-relaxed">
             {consensus.agreement.disagreement_analysis}
           </p>
         </div>
 
         {/* Rationale */}
         <div className="animate-fade-in">
-          <p className="text-xs font-semibold text-text-secondary uppercase tracking-wider mb-2">
+          <p className="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-2">
             Rationale
           </p>
-          <p className="text-sm text-text-primary/90 leading-relaxed">{consensus.rationale}</p>
+          <p className="text-sm text-text-primary leading-relaxed">{consensus.rationale}</p>
         </div>
 
         {/* Improvements */}
         {consensus.improvements.length > 0 && (
           <div>
-            <p className="text-xs font-semibold text-text-secondary uppercase tracking-wider mb-3">
+            <p className="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-3">
               Suggested Improvements
             </p>
             <ol className="space-y-2">
@@ -227,9 +227,7 @@ export default function ConsensusPanel({ state, highlighted = false }: Consensus
                       <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                     </svg>
                   </span>
-                  <span className="text-sm text-text-primary/80 leading-relaxed">
-                    {improvement}
-                  </span>
+                  <span className="text-sm text-text-primary leading-relaxed">{improvement}</span>
                 </li>
               ))}
             </ol>

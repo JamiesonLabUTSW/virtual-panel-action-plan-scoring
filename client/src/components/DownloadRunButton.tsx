@@ -30,7 +30,7 @@ export default function DownloadRunButton({ state }: DownloadRunButtonProps) {
       type="button"
       onClick={handleDownload}
       className="inline-flex items-center gap-2 text-sm text-text-secondary hover:text-text-primary
-        border border-surface-600 hover:border-surface-500 rounded-lg px-4 py-2
+        border border-[var(--border-card)] hover:border-[rgba(0,158,226,0.25)] rounded-lg px-4 py-2
         transition-colors"
     >
       <svg

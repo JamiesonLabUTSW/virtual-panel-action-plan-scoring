@@ -34,8 +34,8 @@ function ExampleCard({
     <button
       type="button"
       onClick={() => onSelect(item)}
-      className="group text-left rounded-xl border border-surface-700 bg-surface-800 p-4
-        hover:border-accent/60 hover:shadow-lg hover:shadow-accent/5
+      className="group text-left rounded-xl border border-[var(--border-card)] bg-surface-800 p-5
+        hover:border-[rgba(0,158,226,0.35)] hover:shadow-[0_0_12px_rgba(0,158,226,0.10)]
         hover:-translate-y-0.5 transition-all duration-200 cursor-pointer"
     >
       <div className="flex items-start justify-between gap-2 mb-2">
@@ -44,11 +44,11 @@ function ExampleCard({
         </span>
         <DifficultyBadge difficulty={item.difficulty} />
       </div>
-      <h3 className="text-sm font-semibold text-text-primary mb-1 group-hover:text-accent-light transition-colors">
+      <h3 className="text-base font-semibold text-text-primary mb-1 group-hover:text-accent-light transition-colors">
         {item.specialty}
       </h3>
-      <p className="text-xs text-text-secondary mb-2">{item.contentArea}</p>
-      <p className="text-xs text-text-secondary/70 line-clamp-2 leading-relaxed">{item.preview}</p>
+      <p className="text-sm text-text-secondary mb-2">{item.contentArea}</p>
+      <p className="text-sm text-text-secondary line-clamp-2 leading-relaxed">{item.preview}</p>
     </button>
   );
 }
@@ -99,14 +99,14 @@ export default function DocumentInput({ onSubmit, disabled }: DocumentInputProps
   if (mode === "gallery") {
     return (
       <div className="animate-fade-in">
-        <div className="text-center mb-8">
+        <div className="text-center mb-10">
           <h2 className="text-2xl font-bold text-text-primary mb-2">Choose an Action Item</h2>
           <p className="text-text-secondary">
             Select a medical specialty example or upload your own document
           </p>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5 mb-6">
           {EXAMPLE_ACTION_ITEMS.map((item) => (
             <ExampleCard key={item.id} item={item} onSelect={handleSelectExample} />
           ))}
@@ -164,7 +164,7 @@ export default function DocumentInput({ onSubmit, disabled }: DocumentInputProps
             onClick={() => fileInputRef.current?.click()}
             disabled={disabled}
             className="text-sm text-text-secondary hover:text-text-primary transition-colors
-              border border-surface-600 rounded-lg px-3 py-1.5 hover:border-surface-500
+              border border-[var(--border-card)] rounded-lg px-3 py-1.5 hover:border-[rgba(0,158,226,0.25)]
               disabled:opacity-50"
           >
             Upload File
@@ -181,7 +181,7 @@ export default function DocumentInput({ onSubmit, disabled }: DocumentInputProps
         disabled={disabled}
         className="w-full bg-surface-800 border border-surface-700 rounded-lg px-4 py-3
           text-text-primary placeholder:text-text-secondary/50 mb-4
-          focus:outline-none focus:border-accent/60 focus:ring-1 focus:ring-accent/30
+          focus:outline-none focus:border-accent focus:ring-1 focus:ring-[rgba(0,158,226,0.30)]
           disabled:opacity-50 transition-colors"
       />
 
@@ -194,7 +194,7 @@ export default function DocumentInput({ onSubmit, disabled }: DocumentInputProps
         rows={16}
         className="w-full bg-surface-800 border border-surface-700 rounded-lg px-4 py-3
           text-text-primary placeholder:text-text-secondary/50 font-mono text-sm leading-relaxed
-          focus:outline-none focus:border-accent/60 focus:ring-1 focus:ring-accent/30
+          focus:outline-none focus:border-accent focus:ring-1 focus:ring-[rgba(0,158,226,0.30)]
           disabled:opacity-50 transition-colors resize-y"
       />
 
@@ -219,10 +219,10 @@ export default function DocumentInput({ onSubmit, disabled }: DocumentInputProps
         type="button"
         onClick={handleSubmit}
         disabled={disabled || text.trim().length === 0 || isOverLimit}
-        className="w-full bg-accent hover:bg-accent-light text-white font-semibold py-3 px-6
+        className="w-full bg-primary hover:bg-accent text-white font-semibold py-3 px-6
           rounded-xl transition-all duration-200
           disabled:opacity-40 disabled:cursor-not-allowed
-          enabled:hover:shadow-lg enabled:hover:shadow-accent/20
+          enabled:hover:shadow-lg enabled:hover:shadow-[rgba(0,158,226,0.20)]
           flex items-center justify-center gap-2"
       >
         <svg
