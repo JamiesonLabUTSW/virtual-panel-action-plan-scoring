@@ -17,14 +17,13 @@ RUN apt-get update && \
 
 WORKDIR /app
 
-# Layer 1: Copy package files for all workspaces (maximum cache efficiency)
-# Separated to cache dependencies independently from source code
+# Layer 1: Copy package files for ALL workspaces (npm ci --workspaces needs them all)
 COPY package*.json ./
 COPY shared/package*.json ./shared/
 COPY client/package*.json ./client/
+COPY server/package*.json ./server/
 
 # Layer 2: Install ALL dependencies (includes devDependencies needed for build)
-# Use npm ci for deterministic installs, parallel with maxsockets optimization
 RUN npm ci --workspaces --include-workspace-root --prefer-offline --no-audit \
     && npm cache clean --force
 
@@ -55,9 +54,10 @@ RUN apt-get update && \
 
 WORKDIR /app
 
-# Layer 1: Copy package files (same strategy as client)
+# Layer 1: Copy package files for ALL workspaces (npm ci --workspaces needs them all)
 COPY package*.json ./
 COPY shared/package*.json ./shared/
+COPY client/package*.json ./client/
 COPY server/package*.json ./server/
 
 # Layer 2: Install dependencies with same optimizations
