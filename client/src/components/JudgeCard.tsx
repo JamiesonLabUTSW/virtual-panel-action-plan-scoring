@@ -151,9 +151,7 @@ function DoneState({ judgeState, persona }: { judgeState: JudgeState; persona: J
                 <span className="text-xs font-mono text-text-secondary">
                   Item #{item.action_item_id}
                 </span>
-                <p className="text-sm text-text-secondary/80 italic leading-relaxed">
-                  {item.comment}
-                </p>
+                <p className="text-sm text-text-secondary italic leading-relaxed">{item.comment}</p>
               </div>
             </div>
           );
@@ -162,7 +160,7 @@ function DoneState({ judgeState, persona }: { judgeState: JudgeState; persona: J
 
       {/* Latency footer */}
       {judgeState.latencyMs != null && (
-        <p className="text-xs text-text-secondary/60 mt-4 pt-3 border-t border-surface-700">
+        <p className="text-xs text-text-secondary mt-4 pt-3 border-t border-[var(--border-internal)]">
           Evaluated in {(judgeState.latencyMs / 1000).toFixed(1)}s
         </p>
       )}
@@ -212,8 +210,8 @@ export default function JudgeCard({ judgeState, raterId }: JudgeCardProps) {
 
   return (
     <section
-      className={`rounded-xl border-t-4 bg-surface-800 p-4 sm:p-5 min-w-0 sm:min-w-[320px] transition-all duration-300 ${
-        status === "running" ? "animate-pulse ring-1 ring-accent/20" : ""
+      className={`rounded-xl border-t-4 border border-[var(--border-card)] bg-surface-800 p-5 sm:p-6 min-w-0 sm:min-w-[320px] transition-all duration-300 ${
+        status === "running" ? "animate-pulse ring-1 ring-[rgba(0,158,226,0.20)]" : ""
       }`}
       style={{ borderTopColor: borderColor }}
       aria-label={`${persona.name} ${persona.title} evaluation`}
@@ -223,7 +221,7 @@ export default function JudgeCard({ judgeState, raterId }: JudgeCardProps) {
         <div className="flex items-center gap-2 mb-3">
           <span className="text-xl">{persona.avatar}</span>
           <div>
-            <p className="text-sm font-semibold text-text-primary">{persona.name}</p>
+            <p className="text-base font-semibold text-text-primary">{persona.name}</p>
             <p className="text-xs text-text-secondary">{persona.title}</p>
           </div>
         </div>

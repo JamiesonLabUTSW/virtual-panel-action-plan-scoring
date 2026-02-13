@@ -1,29 +1,31 @@
 @import "tailwindcss";
 
 /*
- * Design tokens and animations for the Judge Arena dark theme.
+ * Design tokens and animations for the UTSW clinical dark theme.
  * All color constants live here or in the utility modules — never inline hex values in components.
  */
 
 @theme {
   /* Surface colors */
-  --color-surface-900: #0f172a;
-  --color-surface-800: #1e293b;
-  --color-surface-700: #334155;
-  --color-surface-600: #475569;
+  --color-surface-900: #0c1424;
+  --color-surface-800: #162033;
+  --color-surface-700: #1e2d47;
+  --color-surface-600: #2a3a56;
 
   /* Text */
-  --color-text-primary: #f8fafc;
-  --color-text-secondary: #94a3b8;
+  --color-text-primary: #f0f4f8;
+  --color-text-secondary: #8b9bb4;
 
-  /* Accent */
-  --color-accent: #6366f1;
-  --color-accent-light: #818cf8;
+  /* UTSW brand colors */
+  --color-primary: #004c97;
+  --color-primary-dark: #00355d;
+  --color-accent: #009ee2;
+  --color-accent-light: #33b5e9;
 
   /* Judge accent colors */
-  --color-judge-a: #8b5cf6;
-  --color-judge-b: #06b6d4;
-  --color-judge-c: #f59e0b;
+  --color-judge-a: #776cb1;
+  --color-judge-b: #009ee2;
+  --color-judge-c: #f26531;
 
   /* Score colors (1-5) */
   --color-score-1: #dc2626;
@@ -94,13 +96,13 @@
 
   @keyframes pulse-ring {
     0% {
-      box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.5);
+      box-shadow: 0 0 0 0 rgba(0, 158, 226, 0.5);
     }
     70% {
-      box-shadow: 0 0 0 10px rgba(99, 102, 241, 0);
+      box-shadow: 0 0 0 10px rgba(0, 158, 226, 0);
     }
     100% {
-      box-shadow: 0 0 0 0 rgba(99, 102, 241, 0);
+      box-shadow: 0 0 0 0 rgba(0, 158, 226, 0);
     }
   }
 
@@ -123,23 +125,35 @@
   }
 }
 
+/* Border tokens */
+:root {
+  --border-structural: rgba(0, 158, 226, 0.15);
+  --border-card: rgba(0, 158, 226, 0.10);
+  --border-internal: rgba(30, 45, 71, 0.5);
+}
+
 /* CopilotKit dark theme overrides */
 :root {
-  --copilot-kit-primary-color: #6366f1;
-  --copilot-kit-background-color: #1e293b;
-  --copilot-kit-contrast-color: #f8fafc;
-  --copilot-kit-muted-color: #94a3b8;
-  --copilot-kit-separator-color: #475569;
+  --copilot-kit-primary-color: #009ee2;
+  --copilot-kit-background-color: #162033;
+  --copilot-kit-contrast-color: #f0f4f8;
+  --copilot-kit-muted-color: #8b9bb4;
+  --copilot-kit-separator-color: #2a3a56;
 }
 
 /* Base styles */
 body {
   margin: 0;
-  background-color: #0f172a;
-  color: #f8fafc;
+  background-color: #0c1424;
+  color: #f0f4f8;
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Heading font */
+h1, h2, h3, .heading-font {
+  font-family: "Open Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 
 /* Shimmer skeleton utility */

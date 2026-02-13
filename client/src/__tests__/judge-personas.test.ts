@@ -6,24 +6,24 @@ describe("JUDGE_PERSONAS", () => {
     expect(Object.keys(JUDGE_PERSONAS)).toEqual(["rater_a", "rater_b", "rater_c"]);
   });
 
-  it("rater_a is The Professor with violet accent", () => {
+  it("rater_a is The Professor with purple accent", () => {
     const p = JUDGE_PERSONAS.rater_a;
     expect(p.title).toBe("The Professor");
-    expect(p.accentHex).toBe("#8B5CF6");
+    expect(p.accentHex).toBe("#776CB1");
     expect(p.calibrationChip).toBe("Strict on structure");
   });
 
-  it("rater_b is The Editor with cyan accent", () => {
+  it("rater_b is The Editor with blue accent", () => {
     const p = JUDGE_PERSONAS.rater_b;
     expect(p.title).toBe("The Editor");
-    expect(p.accentHex).toBe("#06B6D4");
+    expect(p.accentHex).toBe("#009EE2");
     expect(p.calibrationChip).toBe("Generous on clarity");
   });
 
-  it("rater_c is The Practitioner with amber accent", () => {
+  it("rater_c is The Practitioner with orange accent", () => {
     const p = JUDGE_PERSONAS.rater_c;
     expect(p.title).toBe("The Practitioner");
-    expect(p.accentHex).toBe("#F59E0B");
+    expect(p.accentHex).toBe("#F26531");
     expect(p.calibrationChip).toBe("Strict on actionability");
   });
 

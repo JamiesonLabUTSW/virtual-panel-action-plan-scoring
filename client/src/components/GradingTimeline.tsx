@@ -49,7 +49,7 @@ function deriveSteps(state: GradingState): TimelineStep[] {
     status: consensusStatus,
     score: state.consensus?.final_score,
     description: consensusStatus === "running" ? "Reconciling judge evaluations..." : undefined,
-    accentHex: "#6366F1",
+    accentHex: "#004c97",
   };
 
   return [...judgeSteps, consensusStep];
@@ -116,7 +116,7 @@ function StepCircle({ step, index }: { step: TimelineStep; index: number }) {
     return (
       <div
         className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold animate-pulse-ring"
-        style={{ backgroundColor: "#6366F1" }}
+        style={{ backgroundColor: "#009ee2" }}
       >
         {index + 1}
       </div>

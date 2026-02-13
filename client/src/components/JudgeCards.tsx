@@ -14,10 +14,10 @@ export default function JudgeCards({ state }: JudgeCardsProps) {
   return (
     <section className="animate-fade-in-up">
       <div className="mb-6">
-        <h2 className="text-xs font-semibold uppercase tracking-widest text-text-secondary mb-1">
+        <h2 className="text-sm font-semibold uppercase tracking-widest text-text-secondary mb-2">
           Evaluation Panel
         </h2>
-        <p className="text-sm text-text-secondary/70">
+        <p className="text-sm text-text-secondary">
           Three calibrated judges evaluate the proposal independently
         </p>
       </div>

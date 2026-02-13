@@ -47,9 +47,9 @@ export default function ChatSidebar({ state, visible, children }: ChatSidebarPro
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="xl:hidden fixed bottom-6 right-6 z-50 bg-accent hover:bg-accent-light
+        className="xl:hidden fixed bottom-6 right-6 z-50 bg-primary hover:bg-accent
           text-white rounded-full w-12 h-12 flex items-center justify-center shadow-lg
-          shadow-accent/20 transition-colors"
+          shadow-[rgba(0,158,226,0.20)] transition-colors"
         aria-label={isOpen ? "Close chat" : "Open chat"}
       >
         {isOpen ? (
@@ -103,13 +103,13 @@ export default function ChatSidebar({ state, visible, children }: ChatSidebarPro
         {/* Chat panel */}
         <div
           className="absolute right-0 top-0 bottom-0 w-full max-w-[384px] xl:relative xl:w-96
-          bg-surface-800 border-l border-surface-700 flex flex-col"
+          bg-surface-800 border-l border-[var(--border-structural)] flex flex-col"
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-surface-700">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-internal)]">
             <div>
-              <h3 className="text-sm font-semibold text-text-primary">Grading Assistant</h3>
-              <p className="text-xs text-text-secondary">Ask about the evaluation results</p>
+              <h3 className="text-base font-semibold text-text-primary">Grading Assistant</h3>
+              <p className="text-sm text-text-secondary">Ask about the evaluation results</p>
             </div>
             <button
               type="button"
@@ -131,7 +131,7 @@ export default function ChatSidebar({ state, visible, children }: ChatSidebarPro
           </div>
 
           {/* Suggested questions */}
-          <div className="px-4 py-3 border-b border-surface-700 space-y-2">
+          <div className="px-4 py-3 border-b border-[var(--border-internal)] space-y-2">
             <p className="text-xs text-text-secondary">Try asking:</p>
             <div className="flex flex-wrap gap-1.5">
               {SUGGESTED_QUESTIONS.map((q) => (
