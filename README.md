@@ -12,10 +12,12 @@ pinned: false
 
 **2026 ACGME Annual Educational Conference — Meaning in Medicine**
 
+[![Open in Spaces](https://huggingface.co/datasets/huggingface/badges/resolve/main/open-in-hf-spaces-md.svg)](https://huggingface.co/spaces/mike-holcomb/multi-judge-grading-demo)
+
 The project demonstrates a method for simulating expert evaluator panels using example-conditioned
 large language model (LLM) personas and aggregating their outputs into a consensus evaluation.
 
-https://youtu.be/yYaZP-fsjMo
+[![Watch the demo](https://img.youtube.com/vi/yYaZP-fsjMo/maxresdefault.jpg)](https://www.youtube.com/watch?v=yYaZP-fsjMo)
 
 ---
 

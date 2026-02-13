@@ -1,6 +1,6 @@
 {
   "name": "@grading/server",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "Express server with CopilotKit runtime for LLM-as-a-judge grading pipeline",
   "private": true,
   "type": "module",
