@@ -108,9 +108,13 @@ export default function DocumentInput({ onSubmit, disabled }: DocumentInputProps
 
         {/* Synthetic data disclaimer */}
         <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg px-4 py-3 mb-6 flex items-start gap-3">
-          <span className="text-amber-400 text-xl flex-shrink-0" aria-hidden="true">⚠️</span>
+          <span className="text-amber-400 text-xl flex-shrink-0" aria-hidden="true">
+            ⚠️
+          </span>
           <p className="text-sm text-amber-200 leading-relaxed">
-            <strong className="font-semibold">ALL SAMPLE ACTION PLANS ARE SYNTHETIC DATA.</strong> These examples are fabricated for demonstration purposes and do not represent actual medical residency program action items.
+            <strong className="font-semibold">ALL SAMPLE ACTION PLANS ARE SYNTHETIC DATA.</strong>{" "}
+            These examples are fabricated for demonstration purposes and do not represent actual
+            medical residency program action items.
           </p>
         </div>
 

@@ -143,18 +143,14 @@ export default function RubricModal({ open, onClose }: RubricModalProps) {
                   Keep it concise (1–3 sentences per item). Avoid generic filler and repetition
                   across items
                 </li>
-                <li>
-                  Reference the action item content (timeline, owner, metrics) where relevant
-                </li>
+                <li>Reference the action item content (timeline, owner, metrics) where relevant</li>
               </ul>
             </div>
           </section>
 
           {/* Overall Score Guidance */}
           <section>
-            <h3 className="text-xl font-semibold text-text-primary mb-3">
-              Overall Score Guidance
-            </h3>
+            <h3 className="text-xl font-semibold text-text-primary mb-3">Overall Score Guidance</h3>
             <div className="space-y-3 text-text-secondary leading-relaxed">
               <p className="mb-4">
                 The overall score reflects the proposal's holistic quality and coherence:

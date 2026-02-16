@@ -226,8 +226,10 @@ async function attemptTier<T>(
       model: MODEL,
       instructions: options.system, // System prompt becomes instructions
       input: options.user, // User message becomes input
+      // biome-ignore lint/suspicious/noExplicitAny: SDK type limitations with Responses API text format
       text: tierConfig.getTextFormat(options.schemaName, options.jsonSchema) as any,
       max_output_tokens: options.maxTokens,
+      // biome-ignore lint/suspicious/noExplicitAny: SDK type limitations with Responses API parameters
     } as any); // Type assertion needed due to SDK type limitations
 
     // Extract and validate response text

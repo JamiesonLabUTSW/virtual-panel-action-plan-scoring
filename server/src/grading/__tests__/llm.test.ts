@@ -39,6 +39,7 @@ describe("OpenAI Client with Azure Responses API (Issue #30)", () => {
 
   it("should construct correct Azure baseURL from environment variables", () => {
     const testClient = new OpenAI({
+      // biome-ignore lint/style/noNonNullAssertion: env vars guaranteed from beforeAll
       apiKey: process.env.AZURE_OPENAI_API_KEY!,
       baseURL: `https://${process.env.AZURE_OPENAI_RESOURCE}.openai.azure.com/openai/v1/`,
     });

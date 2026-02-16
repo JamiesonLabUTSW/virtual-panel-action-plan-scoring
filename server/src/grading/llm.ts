@@ -26,6 +26,7 @@ export const client: OpenAI = new Proxy({} as OpenAI, {
       _client = new OpenAI({
         // biome-ignore lint/style/noNonNullAssertion: Safe — values validated at startup (Phase 2.6)
         apiKey: process.env.AZURE_OPENAI_API_KEY!,
+        // biome-ignore lint/style/noNonNullAssertion: Safe — values validated at startup (Phase 2.6)
         baseURL: `https://${process.env.AZURE_OPENAI_RESOURCE!}.openai.azure.com/openai/v1/`,
       });
     }
