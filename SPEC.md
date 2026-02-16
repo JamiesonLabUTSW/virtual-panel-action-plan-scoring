@@ -15,9 +15,9 @@ all powered by **CopilotKit** and the **AG-UI** protocol.
 | ----------------- | --------------------------------------------------------------------------- |
 | LLM               | **gpt-5.1-codex-mini** via **Azure OpenAI v1 API**                          |
 | Backend framework | Express.js + **CopilotKit Runtime** (`@copilotkit/runtime`)                 |
-| LLM orchestration | **LangChain.js** (`@langchain/openai` → `ChatOpenAI` with Azure v1 baseURL) |
+| LLM orchestration | **OpenAI SDK v6** (direct Responses API access with Azure v1 baseURL)       |
 | Frontend          | React + **CopilotKit** (`@copilotkit/react-core`, `@copilotkit/react-ui`)   |
-| Structured output | Zod schemas + `withStructuredOutput({ strict: true })`, 3-tier fallback     |
+| Structured output | Zod schemas + 3-tier fallback (JSON Schema strict → non-strict → runtime)   |
 | Deployment        | HF Spaces Docker, single port 7860                                          |
 
 **Key constraint:** HF Spaces exposes one public port. Express serves the React build as static
@@ -47,8 +47,7 @@ files and mounts the CopilotKit runtime at `/api/copilotkit`.
 - User authentication.
 - Multi-file or rich-document upload (single proposal input only).
 - Benchmark-grade reliability claims (this is a demo).
-- Using CopilotKit as the primary grading decision-maker (LangChain handles evaluation; CopilotKit
-  handles UX and interactive follow-up).
+- Using CopilotKit as the primary grading decision-maker (custom orchestrator handles evaluation; CopilotKit handles UX and interactive follow-up).
 
 ---
 
@@ -73,11 +72,11 @@ files and mounts the CopilotKit runtime at `/api/copilotkit`.
 │  ├── POST /api/copilotkit ..... CopilotKit Runtime       │
 │  │   ├── Service Adapter: OpenAIAdapter (Azure v1 client)│
 │  │   ├── Agent: "gradeDocument" (AbstractAgent)          │
-│  │   │   └── Orchestrator (LangChain.js)                 │
-│  │   │       ├── Judge chain (Rater A calibration)       │
-│  │   │       ├── Judge chain (Rater B calibration)       │
-│  │   │       ├── Judge chain (Rater C calibration)       │
-│  │   │       └── Consensus arbiter chain                 │
+│  │   │   └── Orchestrator (OpenAI SDK)                   │
+│  │   │       ├── Judge evaluation (Rater A calibration)  │
+│  │   │       ├── Judge evaluation (Rater B calibration)  │
+│  │   │       ├── Judge evaluation (Rater C calibration)  │
+│  │   │       └── Consensus arbiter                       │
 │  │   └── Readable context: grading results (for chat)    │
 │  └── GET  /api/health ......... liveness probe           │
 │                                                          │
@@ -95,13 +94,9 @@ a **single HTTP endpoint** (GraphQL was removed in CopilotKit v1.50+). There is 
 custom streaming endpoints. The grading pipeline is registered as a CopilotKit **agent** (custom
 `AbstractAgent` subclass) that the frontend triggers via `useCoAgent<GradingState>.run()`.
 
-**Single OpenAI client, one Azure v1 baseURL.** Both CopilotKit (for chat) and LangChain.js (for
-grading) share the same Azure OpenAI v1 configuration. The v1 API uses standard OpenAI SDK patterns
-(`baseURL + apiKey`), eliminating Azure-specific adapter friction.
+**Single OpenAI client, one Azure v1 baseURL.** Both CopilotKit (for chat) and the grading orchestrator share the same Azure OpenAI v1 configuration. The v1 API uses standard OpenAI SDK patterns (`baseURL + apiKey`), eliminating Azure-specific adapter friction.
 
-**LangChain.js handles LLM orchestration.** Each judge is a LangChain chain that constructs a prompt
-and calls `withStructuredOutput()` to get validated JSON back. The consensus chain takes the three
-judge outputs as input and produces a reconciled result.
+**OpenAI SDK handles LLM calls.** Each judge evaluation uses `client.responses.create()` with the Azure Responses API to get structured JSON output. The implementation includes a 3-tier fallback (JSON Schema strict → non-strict → JSON Object mode with runtime Zod validation) to ensure reliable structured output. The consensus arbiter takes the three judge outputs as input and produces a reconciled result.
 
 **The frontend uses CopilotKit hooks for reactivity.** `useCoAgent<GradingState>` subscribes to the
 agent's state. As the backend orchestrator emits state updates, the frontend re-renders
@@ -142,51 +137,49 @@ Auth: API key via standard header
 
 This means:
 
-- **CopilotKit's `OpenAIAdapter`** receives a standard `OpenAI` client instance configured with the
-  Azure v1 base URL.
-- **LangChain.js** uses `ChatOpenAI` (not `AzureChatOpenAI`) with the same base URL, treating Azure
-  v1 as an OpenAI-compatible endpoint. This avoids Azure-specific adapter surface area and known
-  `AzureChatOpenAI` + Responses API bugs.
+- **CopilotKit's `OpenAIAdapter`** receives a standard `OpenAI` client instance configured with the Azure v1 base URL.
+- **Grading orchestrator** uses the same `OpenAI` client directly via `client.responses.create()` to access the Responses API. No Azure-specific wrappers needed.
 - No `api-version` query param needed. No `azureOpenAIApiInstanceName` or `azureOpenAIApiVersion`.
 
 ### Responses API vs Chat Completions
 
-Azure's GPT-5.x models are designed for the **Responses API** (`client.responses.create(...)`)
-rather than Chat Completions. LangChain.js supports this via the `useResponsesApi: true` flag on
-`ChatOpenAI`.
+Azure's GPT-5.x models are designed for the **Responses API** (`client.responses.create(...)`) rather than Chat Completions API (`client.chat.completions.create(...)`). The implementation uses the Responses API directly via the OpenAI SDK v6.
 
-**⚠️ Known risk:** As of late 2025, LangChain Python's `AzureChatOpenAI` with
-`use_responses_api=True` has reported streaming bugs. The LangChain.js equivalent (`ChatOpenAI` with
-`useResponsesApi: true`) targeting the Azure v1 baseURL is less well-tested. **Milestone 2 must
-validate this works.** Fallback plan: use Chat Completions with `max_completion_tokens` instead of
-`max_output_tokens`.
+**Implementation approach:** The grading orchestrator calls `client.responses.create()` with structured output parameters (`text.format` for JSON Schema). The Responses API uses different field names (`input`/`instructions` instead of `messages`, `output.content[].text` instead of `choices[].message.content`). The 3-tier fallback strategy handles cases where strict JSON Schema validation is not supported.
 
 ### Configuration
 
 ```typescript
 import OpenAI from "openai";
-import { ChatOpenAI } from "@langchain/openai";
 
 // Shared Azure v1 base URL
 const AZURE_BASE_URL = `https://${process.env.AZURE_OPENAI_RESOURCE}.openai.azure.com/openai/v1/`;
 
-// For CopilotKit (OpenAI SDK client)
+// OpenAI SDK client for both CopilotKit and grading orchestrator
 const openaiClient = new OpenAI({
   apiKey: process.env.AZURE_OPENAI_API_KEY,
   baseURL: AZURE_BASE_URL,
+  defaultHeaders: {
+    "api-key": process.env.AZURE_OPENAI_API_KEY,
+  },
 });
 
-// For LangChain.js grading chains
-const llm = new ChatOpenAI({
+// Example: Call Responses API for judge evaluation
+const response = await openaiClient.responses.create({
   model: process.env.AZURE_OPENAI_DEPLOYMENT, // e.g. "gpt-51-codex-mini"
-  openAIApiKey: process.env.AZURE_OPENAI_API_KEY,
-  configuration: {
-    baseURL: AZURE_BASE_URL,
+  instructions: systemPrompt, // System prompt
+  input: userPrompt, // User message
+  text: {
+    format: {
+      type: "json_schema",
+      name: "JudgeOutput",
+      schema: jsonSchema,
+      strict: true, // Tier 1: strict validation
+    },
   },
-  useResponsesApi: true, // Use Responses API for GPT-5.x
-  maxTokens: 2000, // Control output length
+  max_output_tokens: 2000, // Control output length
   // temperature: DO NOT SET — unsupported for reasoning models
-  // Judge variance comes from calibration sets, not sampling
+  // Judge variance comes from calibration sets (few-shot examples), not sampling
 });
 ```
 
@@ -673,54 +666,72 @@ export async function runGradingPipeline({
 }
 ```
 
-### 5.4 Judge Chain (LangChain.js)
+### 5.4 Judge Evaluation (OpenAI SDK)
 
 ```typescript
-// server/src/grading/judge-chain.ts
-import { ChatOpenAI } from "@langchain/openai";
-import { ChatPromptTemplate } from "@langchain/core/prompts";
+// server/src/grading/judge-chain.ts (simplified)
+import OpenAI from "openai";
+import { zodTextFormat } from "openai/helpers/zod";
 import { JudgeOutput } from "@shared/schemas";
 
 const AZURE_BASE_URL = `https://${process.env.AZURE_OPENAI_RESOURCE}.openai.azure.com/openai/v1/`;
 
-const llm = new ChatOpenAI({
-  model: process.env.AZURE_OPENAI_DEPLOYMENT!,
-  openAIApiKey: process.env.AZURE_OPENAI_API_KEY,
-  configuration: { baseURL: AZURE_BASE_URL },
-  useResponsesApi: true,
-  maxOutputTokens: 2000,
-  // NO temperature — reasoning model, unsupported
-  // NO maxTokens — use maxOutputTokens for Responses API
+const client = new OpenAI({
+  apiKey: process.env.AZURE_OPENAI_API_KEY!,
+  baseURL: AZURE_BASE_URL,
+  defaultHeaders: { "api-key": process.env.AZURE_OPENAI_API_KEY! },
 });
+
+// Convert Zod schema to JSON Schema
+const textFormat = zodTextFormat(JudgeOutput, "JudgeOutput");
+const jsonSchema = textFormat.schema;
 
 // 3-tier structured output strategy
 async function invokeWithStructuredOutput(
-  chain: ReturnType<typeof ChatPromptTemplate.prototype.pipe>,
-  input: Record<string, string>
+  systemPrompt: string,
+  userPrompt: string
 ) {
-  // Tier 1: json_schema strict mode (response_format)
+  // Tier 1: JSON Schema strict mode
   try {
-    const structuredLlm = llm.withStructuredOutput(JudgeOutput, {
-      name: "judge_evaluation",
-      strict: true,
+    const response = await client.responses.create({
+      model: process.env.AZURE_OPENAI_DEPLOYMENT!,
+      instructions: systemPrompt,
+      input: userPrompt,
+      text: {
+        format: {
+          type: "json_schema",
+          name: "JudgeOutput",
+          schema: jsonSchema as any,
+          strict: true, // Tier 1: strict validation
+        },
+      },
+      max_output_tokens: 2000,
+      // NO temperature — reasoning model, unsupported
     });
-    const structuredChain = prompt.pipe(structuredLlm);
-    return await structuredChain.invoke(input);
+    const content = response.output.content[0].text;
+    return JudgeOutput.parse(JSON.parse(content));
   } catch (tier1Error) {
-    console.warn(
-      "[structured-output] Tier 1 (json_schema) failed, trying tool calling:",
-      tier1Error
-    );
+    console.warn("[structured-output] Tier 1 (strict) failed, trying non-strict");
   }
 
-  // Tier 2: function/tool calling structured output
+  // Tier 2: JSON Schema non-strict mode
   try {
-    const structuredLlm = llm.withStructuredOutput(JudgeOutput, {
-      name: "judge_evaluation",
-      method: "functionCalling",
+    const response = await client.responses.create({
+      model: process.env.AZURE_OPENAI_DEPLOYMENT!,
+      instructions: systemPrompt,
+      input: userPrompt,
+      text: {
+        format: {
+          type: "json_schema",
+          name: "JudgeOutput",
+          schema: jsonSchema as any,
+          // No strict: true
+        },
+      },
+      max_output_tokens: 2000,
     });
-    const structuredChain = prompt.pipe(structuredLlm);
-    return await structuredChain.invoke(input);
+    const content = response.output.content[0].text;
+    return JudgeOutput.parse(JSON.parse(content));
   } catch (tier2Error) {
     console.warn(
       "[structured-output] Tier 2 (tool calling) failed, trying json_object:",
@@ -1455,7 +1466,7 @@ In HF Spaces settings, add as **secrets** (not visible in UI):
 | #   | Milestone                                             | Deliverable                                                                                                                                                                                                                                                                                       | Risk Level | Est. Effort   |
 | --- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ------------- |
 | 1   | **Spike: CopilotKit + Azure v1 on Express**           | Minimal Express server with CopilotKit runtime using `OpenAIAdapter({ openai: azureV1Client })`. CopilotChat works in React. Served on port 7860 in Docker. **Validate:** CopilotKit streams over single endpoint (no GraphQL). Verify per-session state isolation.                               | 🔴 HIGH    | 1.5 days      |
-| 2   | **Spike: LangChain.js structured output on Azure v1** | `ChatOpenAI` with Azure v1 baseURL + `useResponsesApi: true`. Test `withStructuredOutput(JudgeOutput, { strict: true })` returns valid JSON from gpt-5.1-codex-mini. **Validate:** All 3 fallback tiers. Test that `temperature` and `maxTokens` are NOT passed. Confirm `maxOutputTokens` works. | 🔴 HIGH    | 1 day         |
+| 2   | **Spike: OpenAI SDK structured output on Azure v1** | `client.responses.create()` with Azure v1 baseURL. Test JSON Schema strict mode with `text.format` returns valid JSON from gpt-5.1-codex-mini. **Validate:** All 3 fallback tiers (strict → non-strict → json_object + Zod). Test that `temperature` and `max_tokens` are NOT passed. Confirm `max_output_tokens` works. | 🔴 HIGH    | 1 day         |
 | 3   | **Judge pipeline**                                    | Orchestrator runs 3 judges in parallel with progressive state emission. Hardcode a sample document and one calibration set. Verify state updates arrive in frontend via `useCoAgent`.                                                                                                             | 🟡 MEDIUM  | 1 day         |
 | 4   | **Consensus arbiter**                                 | Consensus prompt + schema. Verify: final_score within `[min, max]`, references judge rationales not document, mean/median computed correctly.                                                                                                                                                     | 🟢 LOW     | 0.5 day       |
 | 5   | **Frontend grading UI**                               | Timeline, JudgeCards (with calibration chips, evidence quotes), ConsensusPanel (with score row, agreement viz, download button). Wired to `useCoAgent` state.                                                                                                                                     | 🟡 MEDIUM  | 2 days        |
@@ -1477,17 +1488,23 @@ must change before proceeding.
 {
   "dependencies": {
     "@copilotkit/runtime": "^1.51.0",
-    "@langchain/openai": "^0.5.0",
-    "@langchain/core": "^0.3.0",
-    "openai": "^5.0.0",
-    "express": "^4.21.0",
-    "express-rate-limit": "^7.0.0",
-    "zod": "^3.23.0"
+    "@ag-ui/client": "^0.0.43",
+    "openai": "^6.0.0",
+    "express": "^5.0.0",
+    "express-rate-limit": "^8.0.0",
+    "pino": "^9.14.0",
+    "pino-http": "^10.0.0",
+    "pino-pretty": "^11.3.0",
+    "rxjs": "^7.8.0",
+    "zod": "^4.0.0"
   },
   "devDependencies": {
+    "@vitest/coverage-v8": "^3.0.0",
+    "supertest": "^7.2.2",
     "tsup": "^8.0.0",
     "tsx": "^4.0.0",
-    "typescript": "^5.6.0"
+    "typescript": "^5.6.0",
+    "vitest": "^3.0.0"
   }
 }
 ```
@@ -1517,13 +1534,13 @@ must change before proceeding.
 | Decision                                               | Rationale                                                                                                                                                                                                                              |
 | ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Azure v1 API (not legacy api-version)**              | v1 uses standard OpenAI SDK patterns, eliminates Azure-specific adapter friction, aligns with Microsoft's recommended path for GPT-5.x models.                                                                                         |
-| **`ChatOpenAI` not `AzureChatOpenAI` for grading**     | Azure v1 is OpenAI-SDK-compatible. Using `ChatOpenAI` with `baseURL` avoids known `AzureChatOpenAI` + Responses API bugs in LangChain. Reduces Azure-specific surface area.                                                            |
-| **No `temperature` for judge variance**                | GPT-5.1-codex-mini is a reasoning model; `temperature` is unsupported. Judge variance comes from calibration sets, which is the correct experimental design anyway.                                                                    |
+| **OpenAI SDK directly (not LangChain)**     | Using OpenAI SDK v6 with `client.responses.create()` provides direct control over Responses API parameters without framework abstractions. Avoids version compatibility issues and gives full access to JSON Schema strict mode.                                                            |
+| **No `temperature` for judge variance**                | GPT-5.1-codex-mini is a reasoning model; `temperature` is unsupported. Judge variance comes from calibration sets (few-shot examples), which is the correct experimental design anyway.                                                                    |
 | **Parallel judges, not sequential**                    | Faster completion (~3x speedup). Progressive state emissions as each judge completes provide clear UX. Rate limit risk acceptable for demo with limited concurrent users. Sequential can be added as fallback for shared environments. |
 | **Consensus as constrained arbiter, not re-evaluator** | If consensus re-reads the proposal, the panel collapses into a single model call with extra steps. Constraining to `[min, max]` and requiring judge-rationale-based justification preserves the multi-judge value.                     |
 | **Domain pivot to medical residency evaluation**       | Synthetic medical program action items from resources/ provide realistic domain context and scoring variance for demonstration purposes. Per-item feedback format matches actual program evaluation workflows.                         |
 | **Per-item feedback (not criteria)**                   | Action items are the natural evaluation unit for program proposals. Per-item comments and scores provide more actionable feedback than abstract criterion scores.                                                                      |
-| **3-tier structured output fallback**                  | Azure v1 + LangChain.js + GPT-5.1 is an undertested combination. Strategy-based fallback (json_schema → tool calling → json_object + Zod) is more robust than prompt-based retry.                                                      |
+| **3-tier structured output fallback**                  | Azure Responses API + GPT-5.1 strict JSON Schema support may have limitations. Strategy-based fallback (json_schema strict → non-strict → json_object + Zod runtime validation) is more robust than prompt-based retry.                                                      |
 | **tsup server bundling**                               | Inlines `shared/` code into server bundle, eliminating Docker runtime path issues.                                                                                                                                                     |
 | **CopilotKit single endpoint (no GraphQL)**            | GraphQL was removed in CopilotKit v1.50+. Spec language updated to reflect current architecture.                                                                                                                                       |
 
@@ -1541,8 +1558,8 @@ must change before proceeding.
 | **AG-UI**                  | Agent-User Interaction Protocol. An open, event-based protocol for real-time communication between AI agents and UIs. Developed by CopilotKit.                                                     |
 | **STATE_DELTA**            | An AG-UI event type that sends an incremental state update from the agent to the frontend.                                                                                                         |
 | **Azure OpenAI v1 API**    | The next-generation Azure OpenAI API (Aug 2025+) that uses standard OpenAI SDK patterns with `baseURL` instead of Azure-specific `api-version` query parameters.                                   |
-| **Responses API**          | OpenAI's newer API endpoint (`client.responses.create(...)`) designed for agentic workflows, preferred over Chat Completions for GPT-5.x models. Uses `max_output_tokens` instead of `max_tokens`. |
-| **`withStructuredOutput`** | A LangChain.js method that constrains LLM output to match a Zod schema. Supports multiple backend strategies: `json_schema`, `functionCalling`, or `json_object` + runtime validation.             |
+| **Responses API**          | OpenAI's newer API endpoint (`client.responses.create(...)`) designed for reasoning models, preferred over Chat Completions for GPT-5.x models. Uses `max_output_tokens` instead of `max_tokens` and `input`/`instructions` instead of `messages`. |
+| **JSON Schema strict mode** | A structured output validation mode where the API enforces exact schema compliance at generation time. Set via `text.format.strict: true` in Responses API. Tier 1 in the 3-tier fallback strategy.             |
 | **gpt-5.1-codex-mini**     | A compact Azure OpenAI reasoning model supporting structured output, function calling, and configurable `reasoning_effort`. Does NOT support `temperature` or `max_tokens`.                        |
 | **Reasoning model**        | An OpenAI model (GPT-5.x, o-series) that performs internal chain-of-thought before responding. Has different parameter constraints than classic chat models.                                       |
 | **log_review**             | Tool call name defined in rubric.txt for judge evaluations. Returns structured per-item feedback with proposal_id, evaluator metadata, and action item reviews.                                    |
