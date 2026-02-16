@@ -31,6 +31,8 @@ The arbiter receives:
 
 ## File Guide
 
+### Grading System Prompts
+
 | File                                                   | Purpose                               | Format          |
 | ------------------------------------------------------ | ------------------------------------- | --------------- |
 | [`judge-system.md`](#judge-system-prompt)              | Shared evaluation rubric (all judges) | Markdown        |
@@ -39,6 +41,19 @@ The arbiter receives:
 | [`consensus-user.md.j2`](#consensus-user-prompt)       | Arbiter prompt with judge results     | Jinja2 Template |
 | [`content-safety.md.j2`](#content-safety-prompt)       | Binary safety classifier              | Jinja2 Template |
 | [`few-shot-example.md`](#few-shot-calibration-example) | Example calibration format            | Markdown        |
+
+### Utility Prompts
+
+The `utility/` directory contains reusable prompts for common data analysis and transformation
+tasks:
+
+| File                           | Purpose                                                     |
+| ------------------------------ | ----------------------------------------------------------- |
+| `utility/carryovers.md`        | Analyze year-over-year action item continuity and overlap   |
+| `utility/data-translation.md`  | Transform multi-row action data into structured narratives  |
+| `utility/data-analysis.md`     | Calculate inter-rater reliability metrics (ICC, Kappa, AC1) |
+| `utility/duplicates.md`        | Identify programs with similar or duplicate action plans    |
+| `utility/rater-reliability.md` | Measure rater agreement and consistency across evaluators   |
 
 ---
 
@@ -224,6 +239,63 @@ pipeline. All other inputs (rubric, examples, system prompts) are controlled ser
 
 **Source:** [`server/src/grading/few-shot-sets.ts`](../server/src/grading/few-shot-sets.ts) —
 Generates examples from calibration JSON files
+
+---
+
+## Utility Prompts
+
+**Directory:** [`utility/`](./utility)
+
+**Purpose:** Reusable prompt templates for common data analysis, transformation, and validation
+tasks outside the core grading pipeline.
+
+**Available Prompts:**
+
+### Analyze Year-Over-Year Carryovers
+
+**File:** [`utility/carryovers.md`](./utility/carryovers.md)
+
+Analyze action items across two consecutive years to identify continuity and changes in program
+priorities. Produces a summary with percentage overlap and interpretations.
+
+### Data Translation: Action Items to Narrative Format
+
+**File:** [`utility/data-translation.md`](./utility/data-translation.md)
+
+Transform multi-row action item data into leadership-ready structured narratives. Aggregates action
+plan data for each program into a single narrative per action item with explicit section headings.
+
+**Key features:**
+
+- Verbatim text retention (no summarization)
+- Exact deduplication of repeated content
+- SMART Objective validation rules
+- Excel workbook output with formatting
+
+### Data Analysis: Reliability Metrics
+
+**File:** [`utility/data-analysis.md`](./utility/data-analysis.md)
+
+Calculate inter-rater reliability metrics to measure agreement between evaluators. Supports multiple
+statistical measures:
+
+- **ICC(2,1)** and **ICC(2,3)** for continuous/interval scale ratings
+- **Cohen's Kappa** for two-rater categorical agreement
+- **Gwet's AC1** for robust categorical agreement
+
+### Duplicate Detection: Similar Action Items
+
+**File:** [`utility/duplicates.md`](./utility/duplicates.md)
+
+Identify programs with highly similar action plans and flag potential duplicates or redundant
+planning. Provides similarity scoring and recommendations for consolidation.
+
+### Rater Reliability Analysis
+
+**File:** [`utility/rater-reliability.md`](./utility/rater-reliability.md)
+
+Comprehensive guide for measuring inter-rater agreement and consistency. Covers common statistical
+methods, data requirements, and output interpretation.
 
 ---
 
