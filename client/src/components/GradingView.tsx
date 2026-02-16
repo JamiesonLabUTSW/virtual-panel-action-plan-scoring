@@ -10,6 +10,7 @@ import DocumentInput from "./DocumentInput";
 import DownloadRunButton from "./DownloadRunButton";
 import GradingTimeline from "./GradingTimeline";
 import JudgeCards from "./JudgeCards";
+import RubricModal from "./RubricModal";
 
 export default function GradingView() {
   const { state, setState } = useCoAgent<GradingState>({
@@ -23,6 +24,7 @@ export default function GradingView() {
   const [hasStarted, setHasStarted] = useState(false);
   const [resetKey, setResetKey] = useState(0);
   const [truncationDismissed, setTruncationDismissed] = useState(false);
+  const [isRubricOpen, setIsRubricOpen] = useState(false);
 
   const handleSubmit = useCallback(
     async (title: string, text: string) => {
@@ -107,37 +109,65 @@ Help the user understand the results by:
         className="border-b border-[var(--border-structural)] px-6 py-6"
         style={{ background: "linear-gradient(to bottom, #0a1628, var(--color-surface-900))" }}
       >
-        <div className="flex items-center gap-4">
-          {/* UTSW logo */}
-          <svg
-            className="h-10 w-10 flex-shrink-0"
-            viewBox="0 0 40 40"
-            fill="none"
-            role="img"
-            aria-labelledby="utsw-logo-title"
-          >
-            <title id="utsw-logo-title">UT Southwestern</title>
-            <rect width="40" height="40" rx="8" fill="#004c97" />
-            <text
-              x="20"
-              y="24"
-              textAnchor="middle"
-              fill="white"
-              fontSize="11"
-              fontWeight="700"
-              fontFamily="Open Sans, sans-serif"
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            {/* UTSW logo */}
+            <svg
+              className="h-10 w-10 flex-shrink-0"
+              viewBox="0 0 40 40"
+              fill="none"
+              role="img"
+              aria-labelledby="utsw-logo-title"
             >
-              UTSW
-            </text>
-          </svg>
-          <div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-              Virtual Panel Action Plan Scoring
-            </h1>
-            <p className="text-base text-text-secondary mt-1">
-              Jamieson Lab, UT Southwestern &middot; 2026 ACGME Annual Educational Conference
-            </p>
+              <title id="utsw-logo-title">UT Southwestern</title>
+              <rect width="40" height="40" rx="8" fill="#004c97" />
+              <text
+                x="20"
+                y="24"
+                textAnchor="middle"
+                fill="white"
+                fontSize="11"
+                fontWeight="700"
+                fontFamily="Open Sans, sans-serif"
+              >
+                UTSW
+              </text>
+            </svg>
+            <div>
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+                Virtual Panel Action Plan Scoring
+              </h1>
+              <p className="text-base text-text-secondary mt-1">
+                Jamieson Lab, UT Southwestern &middot; 2026 ACGME Annual Educational Conference
+              </p>
+            </div>
           </div>
+          {/* Grading Rubric button */}
+          <button
+            type="button"
+            onClick={() => setIsRubricOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[var(--border-card)]
+              bg-surface-800 text-text-secondary hover:text-accent-light hover:border-[rgba(0,158,226,0.35)]
+              transition-all duration-200 flex-shrink-0"
+            aria-label="View grading rubric"
+          >
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+              aria-hidden="true"
+            >
+              <title>Info</title>
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+            <span className="text-sm font-medium hidden sm:inline">Grading Rubric</span>
+          </button>
         </div>
       </header>
 
@@ -268,6 +298,9 @@ Help the user understand the results by:
           {copilotChatElement}
         </ChatSidebar>
       </div>
+
+      {/* Grading Rubric Modal */}
+      <RubricModal open={isRubricOpen} onClose={() => setIsRubricOpen(false)} />
     </div>
   );
 }
