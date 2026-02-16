@@ -3,7 +3,7 @@
  * Maps consensus agreement levels to visual styles.
  */
 
-export interface AgreementStyle {
+interface AgreementStyle {
   hex: string;
   textClass: string;
   bgClass: string;

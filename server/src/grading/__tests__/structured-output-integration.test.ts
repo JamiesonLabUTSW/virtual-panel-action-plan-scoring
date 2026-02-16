@@ -71,12 +71,6 @@ Evaluate these action items and return your assessment as JSON.`;
         // Use default (16000) — reasoning models need high token budgets for internal CoT
       });
 
-      // Log which tier was used
-      console.info(`✓ Integration test succeeded using Tier ${result.tier}`);
-      console.info(
-        `  Tokens: ${result.usage.totalTokens} (${result.usage.promptTokens} prompt + ${result.usage.completionTokens} completion)`
-      );
-
       // Verify result structure
       expect(result).toBeDefined();
       expect(result.tier).toBeGreaterThanOrEqual(1);
@@ -100,12 +94,6 @@ Evaluate these action items and return your assessment as JSON.`;
         expect(typeof item.comment).toBe("string");
         expect(item.score).toBeGreaterThanOrEqual(1);
         expect(item.score).toBeLessThanOrEqual(5);
-      }
-
-      console.info(`  Overall Score: ${judge.overall_score}/5`);
-      console.info(`  Items reviewed: ${judge.items.length}`);
-      for (const item of judge.items) {
-        console.info(`    Item ${item.action_item_id}: score=${item.score}`);
       }
     },
     60000 // 60 second timeout for real API call
@@ -131,8 +119,6 @@ Evaluate and return JSON.`;
       expect(result.result.overall_score).toBeGreaterThanOrEqual(1);
       expect(result.result.overall_score).toBeLessThanOrEqual(5);
       expect(result.result.items.length).toBeGreaterThanOrEqual(1);
-
-      console.info(`✓ Single-item proposal test succeeded using Tier ${result.tier}`);
     },
     60000
   );

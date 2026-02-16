@@ -1,5 +1,5 @@
-import { AbstractAgent, EventType } from "@ag-ui/client";
 import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
+import { AbstractAgent, EventType } from "@ag-ui/client";
 import { Observable } from "rxjs";
 
 /**

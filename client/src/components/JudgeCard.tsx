@@ -112,13 +112,14 @@ function DoneState({ judgeState, persona }: { judgeState: JudgeState; persona: J
           </div>
         </div>
         <div className="animate-score-reveal text-center">
-          <span
+          <div
             className="text-5xl font-black"
-            style={{ color: scoreStyle.hex }}
+            role="img"
             aria-label={`Overall score: ${result.overall_score} out of 5, ${scoreStyle.label}`}
+            style={{ color: scoreStyle.hex }}
           >
             {result.overall_score}
-          </span>
+          </div>
           <p className="text-xs text-text-secondary mt-0.5">{scoreStyle.label}</p>
         </div>
       </div>

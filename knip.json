@@ -6,7 +6,7 @@
       "project": []
     },
     "shared": {
-      "entry": ["types.ts", "schemas.ts"],
+      "entry": ["index.ts"],
       "project": ["**/*.ts", "!**/*.test.ts"]
     },
     "server": {
@@ -19,5 +19,5 @@
     }
   },
   "ignore": ["**/__tests__/**", "**/*.test.ts", "**/*.config.ts"],
-  "ignoreDependencies": ["@types/*", "tsx", "vite"]
+  "ignoreDependencies": ["tailwindcss"]
 }

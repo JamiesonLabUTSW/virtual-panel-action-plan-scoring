@@ -293,6 +293,7 @@ describe("ConsensusOutput schema", () => {
         ...validConsensusOutput,
         agreement: {
           ...validConsensusOutput.agreement,
+          // biome-ignore lint/suspicious/noExplicitAny: Intentional invalid value for negative test
           agreement_level: "invalid" as any,
         },
       })

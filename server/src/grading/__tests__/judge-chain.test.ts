@@ -1,5 +1,6 @@
 import { JudgeOutput, type JudgeOutputType } from "@shared/schemas";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { InvokeOptions } from "../../__tests__/test-types";
 import type { StructuredInvokeResult } from "../structured-output";
 
 /**
@@ -68,8 +69,7 @@ describe("runJudge", () => {
 
     expect(mockInvokeWithStructuredOutput).toHaveBeenCalledTimes(1);
     const callArgs = mockInvokeWithStructuredOutput.mock.calls[0];
-    // biome-ignore lint/suspicious/noExplicitAny: Test helper
-    const options = callArgs[1] as any;
+    const options = callArgs[1] as InvokeOptions;
 
     expect(options.system).toContain("MOCK_RUBRIC_TEXT");
   });
@@ -90,8 +90,7 @@ describe("runJudge", () => {
 
     expect(mockInvokeWithStructuredOutput).toHaveBeenCalledTimes(1);
     const callArgs = mockInvokeWithStructuredOutput.mock.calls[0];
-    // biome-ignore lint/suspicious/noExplicitAny: Test helper
-    const options = callArgs[1] as any;
+    const options = callArgs[1] as InvokeOptions;
 
     expect(options.user).toContain("## Calibration Examples");
     expect(options.user).toContain(fewShotExamples);
@@ -115,12 +114,12 @@ describe("runJudge", () => {
     });
 
     const callArgs = mockInvokeWithStructuredOutput.mock.calls[0];
-    // biome-ignore lint/suspicious/noExplicitAny: Test helper
-    const schema = callArgs[0] as any;
+    const schema = callArgs[0];
 
     expect(schema).toBe(JudgeOutput);
   });
 
+  // biome-ignore lint/security/noSecrets: test name, not a secret
   it("should pass maxCompletionTokens=4000 and schemaName='log_review'", async () => {
     mockInvokeWithStructuredOutput.mockResolvedValue(createMockJudgeResult());
 
@@ -133,8 +132,7 @@ describe("runJudge", () => {
     });
 
     const callArgs = mockInvokeWithStructuredOutput.mock.calls[0];
-    // biome-ignore lint/suspicious/noExplicitAny: Test helper
-    const options = callArgs[1] as any;
+    const options = callArgs[1] as InvokeOptions;
 
     expect(options.maxCompletionTokens).toBe(4000);
     expect(options.schemaName).toBe("log_review");

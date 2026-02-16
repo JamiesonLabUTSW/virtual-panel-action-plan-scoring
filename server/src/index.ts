@@ -2,13 +2,15 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createOpenAI } from "@ai-sdk/openai";
-import { CopilotRuntime, OpenAIAdapter, copilotRuntimeNodeHttpEndpoint } from "@copilotkit/runtime";
+import { CopilotRuntime, copilotRuntimeNodeHttpEndpoint, OpenAIAdapter } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkitnext/agent";
 import express, { type Request, type Response } from "express";
 import rateLimit from "express-rate-limit";
 import OpenAI from "openai";
+import pinoHttp from "pino-http";
 import { GradeDocumentAgent } from "./agents/grade-document-agent";
 import { exitIfInvalid, validateRequiredEnvVars } from "./config/env-validation";
+import { logger } from "./utils/logger";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -66,7 +68,7 @@ const gradingLimiter = rateLimit({
   legacyHeaders: false, // Disable `X-RateLimit-*` headers
   handler: (req, res, _next, _optionsUsed) => {
     const ip = req.ip || req.socket.remoteAddress || "unknown";
-    console.warn(`Rate limit exceeded for IP: ${ip} at ${new Date().toISOString()}`);
+    req.log.warn({ ip }, "Rate limit exceeded");
 
     // Type assertion needed: req.rateLimit added by express-rate-limit at runtime
     const rateLimitInfo = (req as any).rateLimit;
@@ -84,7 +86,6 @@ const gradingLimiter = rateLimit({
 // Initialize CopilotKit runtime with:
 // - "default": BuiltInAgent for post-grading chat (uses Azure OpenAI via Vercel AI SDK)
 // - "gradeDocument": Custom AbstractAgent for the multi-judge grading pipeline
-// biome-ignore lint/suspicious/noExplicitAny: CopilotKit's internal @ag-ui/client types conflict with explicit dep (documented in CLAUDE.md)
 const copilotRuntime = new CopilotRuntime({
   agents: {
     default: new BuiltInAgent({
@@ -96,6 +97,47 @@ const copilotRuntime = new CopilotRuntime({
 
 // Middleware
 app.use(express.json({ limit: REQUEST_SIZE_LIMIT }));
+
+// HTTP request logging middleware (pino-http)
+// Pass logger via the `logger` option (not as second positional arg)
+app.use(
+  pinoHttp({
+    logger: logger as any,
+    // Custom log levels based on response status
+    customLogLevel: (_req, res) => {
+      if (res.statusCode >= 500) return "error";
+      if (res.statusCode >= 400) return "warn";
+      return "info";
+    },
+    // Custom log messages
+    customSuccessMessage: (_req, res) => {
+      return `${_req.method} ${_req.url} completed with status ${res.statusCode}`;
+    },
+    customErrorMessage: (_req, res, _err) => {
+      return `${_req.method} ${_req.url} failed with status ${res.statusCode}`;
+    },
+    // Redact sensitive headers and request/response bodies
+    serializers: {
+      req: (req) => {
+        return {
+          method: req.method,
+          url: req.url,
+          headers: {
+            ...req.headers,
+            // Remove sensitive headers
+            authorization: undefined,
+            "x-api-key": undefined,
+          },
+        };
+      },
+      res: (res) => {
+        return {
+          statusCode: res.statusCode,
+        };
+      },
+    },
+  })
+);
 
 // Health check endpoint
 app.get("/api/health", (_req: Request, _res: Response) => {
@@ -134,21 +176,21 @@ const publicDir = existsSync(path.join(__dirname, "public"))
   ? path.join(__dirname, "public")
   : path.join(__dirname, "../public");
 if (!existsSync(publicDir)) {
-  console.warn("⚠ Public directory not found. Static files will not be served.");
-  console.warn("  Run 'npm run build --workspace=@grading/client' first for production mode.");
-  console.warn("  In dev mode, use the Vite dev server instead.");
+  logger.warn("Public directory not found. Static files will not be served.");
+  logger.warn("Run 'npm run build --workspace=@grading/client' first for production mode.");
+  logger.warn("In dev mode, use the Vite dev server instead.");
 } else {
   app.use(express.static(publicDir));
-  console.info(`✓ Serving static files from ${publicDir}`);
+  logger.info({ publicDir }, "Serving static files");
 }
 
 // SPA fallback: serve index.html for any non-API routes
 // Note: This must be defined AFTER all API routes (both app.get and app.use)
 // to avoid shadowing API endpoints.
-app.get("*path", (_req: Request, res: Response) => {
+app.get("*path", (req: Request, res: Response) => {
   res.sendFile(path.join(publicDir, "index.html"), (err) => {
     if (err) {
-      console.error("Failed to serve index.html:", err);
+      req.log.error({ error: err }, "Failed to serve index.html");
       res.status(500).send("Application not properly deployed");
     }
   });
@@ -156,6 +198,9 @@ app.get("*path", (_req: Request, res: Response) => {
 
 // Start server
 app.listen(PORT, "0.0.0.0", () => {
-  console.info(`Server running on port ${PORT}`);
-  console.info(`Azure OpenAI: https://${AZURE_OPENAI_RESOURCE}.openai.azure.com/openai/v1/`);
+  logger.info({ port: PORT }, "Server running");
+  logger.info(
+    { baseURL: `https://${AZURE_OPENAI_RESOURCE}.openai.azure.com/openai/v1/` },
+    "Azure OpenAI configured"
+  );
 });

@@ -18,7 +18,7 @@ import { invokeWithStructuredOutput } from "./structured-output";
 /**
  * Input for consensus arbiter
  */
-export interface ConsensusInput {
+interface ConsensusInput {
   /**
    * Judge results (2-3 judges required)
    */
@@ -70,6 +70,7 @@ interface AgreementStats {
  *
  * @param scores - Array of 2-3 judge scores (integers 1-5)
  * @returns Agreement statistics
+ * @public Exported for testing via dynamic import
  *
  * @example
  * ```typescript

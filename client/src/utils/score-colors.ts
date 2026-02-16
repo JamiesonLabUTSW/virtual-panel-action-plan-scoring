@@ -3,7 +3,7 @@
  * Colors match SPEC §4.4 score scale.
  */
 
-export interface ScoreStyle {
+interface ScoreStyle {
   hex: string;
   textClass: string;
   bgClass: string;

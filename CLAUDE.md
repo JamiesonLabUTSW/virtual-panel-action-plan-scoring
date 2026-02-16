@@ -91,6 +91,64 @@ scripts in package.json; place tests in `__tests__/` directory.
 **UAT with Playwright**: Start servers with `./start-dev-server.sh` and `./start-dev-client.sh`,
 then use Playwright MCP tools for end-to-end testing (navigate, click, wait, snapshot).
 
+## Logging Conventions
+
+The server uses [pino](https://github.com/pinojs/pino) for structured logging.
+
+**Usage pattern:**
+
+```typescript
+import logger from "./utils/logger";
+
+// Component-level child logger
+const myLogger = logger.child({ component: "orchestrator", proposalId });
+
+// Structured fields first, message last
+myLogger.info({ latencyMs, tier, tokens }, "Judge evaluation completed");
+myLogger.error({ judgeId, error }, "Judge evaluation failed");
+```
+
+**Log levels:**
+
+- `logger.debug()` — Verbose diagnostics (e.g., "content safety check started")
+- `logger.info()` — Business metrics (scores, latency, agreement, token usage)
+- `logger.warn()` — Degraded execution (single judge failure, rate limits)
+- `logger.error()` — Hard stops (consensus formation failure, missing env vars)
+
+**Environment variables:**
+
+- `LOG_LEVEL` — Set to `debug`, `info`, `warn`, or `error` (default: `info` in prod, `debug` in dev)
+- `NODE_ENV=development` — Enables pino-pretty (colored, human-readable output)
+- `NODE_ENV=production` — Line-delimited JSON for log aggregators
+
+**Automatic HTTP logging:**
+
+- `pino-http` middleware logs every request/response with status code, latency, and request ID
+- Request logs: `req.log.info()`, `req.log.warn()`, `req.log.error()`
+
+**pino + pino-http compatibility:**
+
+- **Do NOT use `pino.transport()`** to create the logger — it returns a worker-thread stream that
+  breaks when pino-http creates child loggers (`stream.write is not a function`). Use pino's inline
+  `transport` option instead: `pino({ transport: { target: "pino-pretty", options: {...} } })`
+- Pass logger to pinoHttp via `{ logger }` option, not as the second positional argument
+- CopilotKit runtime bundles `pino@9` internally. Server's pino and pino-http versions must align
+  with pino 9 (use `pino-http@^10`, not `^11` which requires pino 10)
+
+**Security:**
+
+- Proposal content automatically redacted via `redact.paths` config
+- Authorization headers stripped from request logs
+- Technical error details logged server-side only (sanitized messages sent to users)
+
+**Testing:**
+
+- Use `logger.child({ test: true })` in tests to isolate log output
+- No console.\* calls allowed in production code (enforced by Biome `noConsole` rule)
+- **Debugging tip:** pino-pretty runs in a worker thread whose output bypasses shell redirection. To
+  see server crash errors, set `NODE_ENV=production` for JSON output to stdout, or remove the
+  `transport` option temporarily
+
 ## Architecture
 
 ```
@@ -414,8 +472,8 @@ Consensus arbiter references judge rationales (not the original proposal), outpu
 
 ## Code Quality Tooling
 
-**Toolchain:** Biome (lint + format), Prettier (MD only), Vitest (coverage), Husky + lint-staged
-(pre-commit), Knip (unused code), TypeDoc (API docs)
+**Toolchain:** Biome v2 (lint + format + security), Prettier (MD only), Vitest (coverage), Husky +
+lint-staged (pre-commit), Knip (unused code), TypeDoc (API docs)
 
 **Key commands:**
 
@@ -425,10 +483,14 @@ npm run format            # Format all files (Biome + Prettier)
 npm run test:coverage     # Run tests with coverage reports
 npm run knip              # Detect unused dependencies/exports
 npm run docs              # Generate API documentation
+npm run audit:security    # Check for high/critical dependency vulnerabilities (non-blocking)
+npm run secrets:check     # Scan staged files for secrets via gitleaks (non-blocking)
+npm run secrets:scan-all  # Scan entire git history for secrets
 ```
 
-**Pre-commit hooks:** Automatically run Biome, Prettier, type-check (affected workspaces only), and
-related tests on staged files. Commits are blocked if any check fails.
+**Pre-commit hooks:** Run secret scan (gitleaks, non-blocking) → dependency audit (non-blocking) →
+lint-staged (Biome, Prettier, type-check, related tests). Security checks are informational only;
+lint/type/test failures block commits.
 
 **Coverage thresholds:** 80% per workspace (lines, functions, branches, statements). Reports
 warnings but does NOT fail builds.
@@ -450,10 +512,18 @@ follow this safe path:
   (`npm run script --workspace=@pkg/name`), NOT bash wrappers (`bash -c 'cd dir && cmd'`). Bash
   wrappers prevent lint-staged from appending file arguments
 - **Husky v9+ hooks:** No husky.sh sourcing needed - just shebang + command in `.husky/*` files
+- **Biome v2 config migration:** `files.ignore` → `files.includes` (allowlist), `organizeImports` →
+  `assist.actions.source.organizeImports`, `noConsoleLog` → `noConsole`. The `biome migrate` command
+  fails on Tailwind CSS parse errors — manual migration may be needed.
+- **Biome v2 CSS:** Exclude CSS from `files.includes` if using Tailwind `@apply` — Biome can't parse
+  it and will error.
+- **Biome `noSecrets` rule:** Flags high-entropy test name strings as false positives. Suppress with
+  `// biome-ignore lint/security/noSecrets: <reason>`
 
 **Configuration files:**
 
 - `biome.json` — Linting + formatting rules (double quotes, 100 line width, import sorting enabled)
+- `gitleaks.toml` — Secret scanning config with allowlists for test fixtures and example files
 - `.prettierrc.json` + `.prettierignore` — Markdown-only formatting
 - `{workspace}/vitest.config.ts` — Per-workspace test configs with @shared alias resolution
 - `.lintstagedrc.json` — Pre-commit staged file checks
@@ -462,6 +532,19 @@ follow this safe path:
 
 **Documentation:** See `CODE_STANDARDS.md` for detailed workflow, common issues, and
 troubleshooting.
+
+## Security Tooling
+
+Three-phase security tooling (see `docs/SECURITY_TOOLING.md` for full details):
+
+- **Phase 1 — Dependency audit:** `npm audit` in pre-commit (non-blocking, `|| true`)
+- **Phase 2 — Secret scanning:** gitleaks pre-commit hook (`scripts/check-secrets.sh`), config in
+  `gitleaks.toml`. Gracefully skips if gitleaks not installed (`brew install gitleaks`)
+- **Phase 3 — Static analysis:** Biome v2 security rules (`noGlobalEval`,
+  `noDangerouslySetInnerHtml`, `noSecrets`) at error level. Zero new dependencies.
+
+All remaining dependency vulnerabilities (16 moderate) are transitive — none directly used. Tracked
+in GitLab issue #67.
 
 ## Git & Tool Conventions
 
@@ -473,3 +556,21 @@ troubleshooting.
 - **npm workspace commands** use full package name (e.g., `npm test --workspace=@shared/types`, not
   `shared`)
 - **Node version:** Enforce via both `.nvmrc` (for nvm users) and `package.json` `engines` field
+
+## Dependency Version Constraints
+
+**npm overrides** (in root `package.json`) force single versions across the monorepo to prevent
+hoisting conflicts. Current overrides: `vite ^6`, `esbuild >=0.25.0`, `rxjs 7.8.1`,
+`prismjs 1.30.0`.
+
+**Version alignment rules:**
+
+- **vitest** major version must match **vite** major version (vitest 3.x for vite 6.x). Mismatch
+  causes duplicate vite copies and plugin crashes (`createIdResolver is not a function`)
+- **pino** version is pinned by `@copilotkit/runtime` (currently pino@9). Do not upgrade pino or
+  pino-http independently — check `npm ls pino` for conflicts first
+- **vitest 3.x** changed `vi.fn` type signature: use `vi.fn<(arg: T) => R>()` (single function type
+  param), not `vi.fn<[T], R>()` (separate args/return params)
+- When debugging dependency issues, always run `npm ls <package>` to check for duplicate versions
+  before changing package.json. Add npm overrides only when deduplication can't be achieved by
+  aligning direct dependency ranges

@@ -48,7 +48,7 @@ describe("Few-Shot Sets Module (Issue #32)", () => {
       const scoreMatches = RATER_A_EXAMPLES.match(/"score": (\d)/g) || [];
       expect(scoreMatches.length).toBeGreaterThan(0);
       for (const match of scoreMatches) {
-        const score = Number.parseInt(match.match(/\d/)?.[0] || "0");
+        const score = Number.parseInt(match.match(/\d/)?.[0] || "0", 10);
         expect(score).toBeGreaterThanOrEqual(1);
         expect(score).toBeLessThanOrEqual(5);
       }
@@ -81,7 +81,7 @@ describe("Few-Shot Sets Module (Issue #32)", () => {
       const scoreMatches = RATER_B_EXAMPLES.match(/"score": (\d)/g) || [];
       expect(scoreMatches.length).toBeGreaterThan(0);
       for (const match of scoreMatches) {
-        const score = Number.parseInt(match.match(/\d/)?.[0] || "0");
+        const score = Number.parseInt(match.match(/\d/)?.[0] || "0", 10);
         expect(score).toBeGreaterThanOrEqual(1);
         expect(score).toBeLessThanOrEqual(5);
       }
@@ -114,7 +114,7 @@ describe("Few-Shot Sets Module (Issue #32)", () => {
       const scoreMatches = RATER_C_EXAMPLES.match(/"score": (\d)/g) || [];
       expect(scoreMatches.length).toBeGreaterThan(0);
       for (const match of scoreMatches) {
-        const score = Number.parseInt(match.match(/\d/)?.[0] || "0");
+        const score = Number.parseInt(match.match(/\d/)?.[0] || "0", 10);
         expect(score).toBeGreaterThanOrEqual(1);
         expect(score).toBeLessThanOrEqual(5);
       }

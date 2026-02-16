@@ -14,6 +14,32 @@ import { StructuredOutputError } from "../structured-output-errors";
  * - Edge cases like empty choices array are handled
  */
 
+/**
+ * Mock interface for OpenAI Responses API response structure
+ * Represents the shape of responses from the Responses API
+ */
+interface MockResponsesAPIResponse {
+  id: string;
+  object: "response";
+  created_at: number;
+  model: string;
+  status?: "completed" | "incomplete" | "in_progress" | "failed";
+  output_text?: string | null;
+  output?: Array<{
+    type: "message";
+    role: "assistant";
+    content: Array<{
+      type: "output_text";
+      text: string;
+    }>;
+  }>;
+  usage?: {
+    input_tokens?: number;
+    output_tokens?: number;
+    total_tokens?: number;
+  };
+}
+
 // Define a simple test schema
 const TestSchema = z.object({
   name: z.string(),
@@ -49,7 +75,7 @@ describe("invokeWithStructuredOutput", () => {
    * Helper to create a valid Responses API response
    * Responses API uses output_text (convenience) and output array, not content
    */
-  function createValidResponse(data: TestType): any {
+  function createValidResponse(data: TestType): MockResponsesAPIResponse {
     return {
       id: "resp_test123",
       object: "response",
