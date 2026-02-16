@@ -1,5 +1,6 @@
 import type { ConsensusOutputType, JudgeOutputType } from "@shared/schemas";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { InvokeOptions } from "../../__tests__/test-types";
 
 /**
  * Tests for consensus arbiter chain (Issue #34)
@@ -203,8 +204,7 @@ describe("runConsensus", () => {
       })
     );
 
-    // biome-ignore lint/suspicious/noExplicitAny: Test helper
-    const call = mockInvokeWithStructuredOutput.mock.calls[0][1] as any;
+    const call = mockInvokeWithStructuredOutput.mock.calls[0][1] as InvokeOptions;
     expect(call.system).toContain("ARBITER RULES");
     expect(call.system).toContain("RATER PERSONAS");
   });

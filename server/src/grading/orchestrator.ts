@@ -12,6 +12,7 @@
  */
 
 import type { GradingState, JudgeState } from "@shared/types";
+import { logger } from "../utils/logger";
 import { runConsensus } from "./consensus-chain";
 import { checkContentSafety } from "./content-safety";
 import { RATER_A_EXAMPLES, RATER_B_EXAMPLES, RATER_C_EXAMPLES } from "./few-shot-sets";
@@ -20,7 +21,7 @@ import { runJudge } from "./judge-chain";
 /**
  * Input parameters for the grading pipeline
  */
-export interface PipelineInput {
+interface PipelineInput {
   /** Proposal identifier */
   proposalId: number;
 
@@ -76,6 +77,66 @@ const JUDGES: JudgeConfig[] = [
 ];
 
 /**
+ * Validate proposal text for content safety
+ *
+ * Screens proposal text for injection attempts and inappropriate content.
+ * This is the ONLY untrusted user input in the system - all other inputs
+ * (rubric, few-shot examples, system prompts) are controlled server-side.
+ *
+ * @param proposalText - Raw proposal text to validate
+ * @param emitState - State emission callback for error states
+ * @param runLogger - Logger instance for diagnostics
+ * @throws Error if content is rejected or infrastructure check fails
+ */
+async function validateContentSafety(
+  proposalText: string,
+  emitState: (state: Partial<GradingState>) => void,
+  runLogger: typeof logger
+): Promise<void> {
+  runLogger.debug("Content safety check started");
+
+  try {
+    const safetyResult = await checkContentSafety(proposalText);
+
+    if (safetyResult.isSafe) {
+      runLogger.info({ latencyMs: safetyResult.latencyMs }, "Content safety check passed");
+    } else {
+      runLogger.warn(
+        { latencyMs: safetyResult.latencyMs, reason: safetyResult.reason },
+        "Content safety check blocked"
+      );
+
+      const errorMsg =
+        "This proposal contains inappropriate content or invalid formatting. Please review and try again.";
+      emitState({
+        phase: "error",
+        judges: {},
+        error: errorMsg,
+      });
+      throw new Error(errorMsg);
+    }
+  } catch (error) {
+    // Re-throw content safety rejections as-is (already have error state emitted)
+    if (error instanceof Error && error.message.includes("inappropriate content")) {
+      throw error;
+    }
+
+    // Infrastructure errors (network, auth, rate limit) — emit error state with sanitized message
+    const errorMsg = "Unable to verify content safety. Please try again.";
+    runLogger.error(
+      { error: error instanceof Error ? error.message : String(error) },
+      "Content safety check failed"
+    );
+    emitState({
+      phase: "error",
+      judges: {},
+      error: errorMsg,
+    });
+    throw new Error(errorMsg);
+  }
+}
+
+/**
  * Run the complete grading pipeline
  *
  * Orchestrates:
@@ -102,7 +163,8 @@ export async function runGradingPipeline(input: PipelineInput): Promise<GradingS
   // Validate non-empty proposal text
   if (truncatedText.trim().length === 0) {
     const errorMsg = "No action items provided. At least 1 action item is required for evaluation.";
-    console.error(`[run] FAILED proposal_id=${proposalId}: ${errorMsg}`);
+    const runLogger = logger.child({ proposalId, phase: "grading" });
+    runLogger.error({ proposalId }, errorMsg);
     emitState({
       phase: "error",
       judges: {},
@@ -111,53 +173,13 @@ export async function runGradingPipeline(input: PipelineInput): Promise<GradingS
     throw new Error(errorMsg);
   }
 
-  // Content safety check: Screen proposal text for injection attempts and inappropriate content
-  // This is the ONLY untrusted user input in the system - all other inputs (rubric, few-shot
-  // examples, system prompts) are controlled server-side.
-  console.info("[content-safety] Screening proposal text...");
+  // Validate content safety (screens for injection attempts and inappropriate content)
+  const runLogger = logger.child({ proposalId, phase: "grading" });
+  await validateContentSafety(proposalText, emitState, runLogger);
 
-  try {
-    const safetyResult = await checkContentSafety(proposalText);
-
-    // Log result (never log proposal content)
-    if (safetyResult.isSafe) {
-      console.info(`[content-safety] result=safe latency=${safetyResult.latencyMs}ms`);
-    } else {
-      console.warn(
-        `[content-safety] result=blocked latency=${safetyResult.latencyMs}ms reason="${safetyResult.reason}"`
-      );
-
-      // Emit error state
-      const errorMsg =
-        "This proposal contains inappropriate content or invalid formatting. Please review and try again.";
-      emitState({
-        phase: "error",
-        judges: {},
-        error: errorMsg,
-      });
-      throw new Error(errorMsg);
-    }
-  } catch (error) {
-    // Re-throw content safety rejections as-is (already have error state emitted)
-    if (error instanceof Error && error.message.includes("inappropriate content")) {
-      throw error;
-    }
-
-    // Infrastructure errors (network, auth, rate limit) — emit error state with sanitized message
-    const errorMsg = "Unable to verify content safety. Please try again.";
-    console.error(
-      `[content-safety] FAILED: ${error instanceof Error ? error.message : String(error)}`
-    );
-    emitState({
-      phase: "error",
-      judges: {},
-      error: errorMsg,
-    });
-    throw new Error(errorMsg);
-  }
-
-  console.info(
-    `[run] started proposal_id=${proposalId} chars=${truncatedText.length} truncated=${wasTruncated}`
+  runLogger.info(
+    { proposalId, chars: truncatedText.length, wasTruncated },
+    "Grading pipeline started"
   );
 
   const runStartTime = Date.now();
@@ -186,6 +208,7 @@ export async function runGradingPipeline(input: PipelineInput): Promise<GradingS
   // Parallel judge execution (Promise.all)
   const judgePromises = JUDGES.map(async (judge) => {
     const judgeStartTime = Date.now();
+    const judgeLogger = runLogger.child({ judgeId: judge.id, evaluatorName: judge.label });
 
     try {
       // Run judge evaluation
@@ -209,8 +232,9 @@ export async function runGradingPipeline(input: PipelineInput): Promise<GradingS
       };
 
       // Log judge completion
-      console.info(
-        `[judge:${judge.id}] overall_score=${result.overall_score} latency=${latencyMs}ms tier=${tier} tokens=${usage.totalTokens}`
+      judgeLogger.info(
+        { overallScore: result.overall_score, latencyMs, tier, tokens: usage.totalTokens },
+        "Judge evaluation completed"
       );
 
       // EMIT: Judge completed
@@ -229,10 +253,9 @@ export async function runGradingPipeline(input: PipelineInput): Promise<GradingS
       };
 
       // Log judge failure with full technical details (server logs only)
-      console.error(
-        `[judge:${judge.id}] FAILED after ${latencyMs}ms: ${
-          error instanceof Error ? error.message : String(error)
-        }`
+      judgeLogger.error(
+        { latencyMs, error: error instanceof Error ? error.message : String(error) },
+        "Judge evaluation failed"
       );
 
       // EMIT: Judge failed
@@ -254,7 +277,10 @@ export async function runGradingPipeline(input: PipelineInput): Promise<GradingS
 
   if (successfulJudges.length < 2) {
     const errorMsg = `Fewer than 2 judges succeeded (${failedCount} failed). Cannot form consensus.`;
-    console.error(`[run] FAILED: ${errorMsg}`);
+    runLogger.error(
+      { successfulJudges: successfulJudges.length, failedJudges: failedCount },
+      "Insufficient judge responses for consensus"
+    );
 
     emitState({
       phase: "error",
@@ -287,9 +313,18 @@ export async function runGradingPipeline(input: PipelineInput): Promise<GradingS
     const consensusLatencyMs = Date.now() - consensusStartTime;
 
     // Log consensus completion
+    const consensusLogger = runLogger.child({ phase: "consensus" });
     const agreementSpread = consensus.agreement.spread;
-    console.info(
-      `[consensus] final_score=${consensus.final_score} agreement=${consensus.agreement.agreement_level} spread=${agreementSpread} latency=${consensusLatencyMs}ms tier=${tier} tokens=${usage.totalTokens}`
+    consensusLogger.info(
+      {
+        finalScore: consensus.final_score,
+        agreement: consensus.agreement.agreement_level,
+        spread: agreementSpread,
+        latencyMs: consensusLatencyMs,
+        tier,
+        tokens: usage.totalTokens,
+      },
+      "Consensus arbiter completed"
     );
 
     // Build final state
@@ -310,14 +345,20 @@ export async function runGradingPipeline(input: PipelineInput): Promise<GradingS
     emitState(finalState);
 
     const totalLatencyMs = Date.now() - runStartTime;
-    console.info(
-      `[run] completed total_latency=${totalLatencyMs}ms judges_succeeded=${successfulJudges.length} judges_failed=${failedCount}`
+    runLogger.info(
+      {
+        totalLatencyMs,
+        judgesSucceeded: successfulJudges.length,
+        judgesFailed: failedCount,
+      },
+      "Grading pipeline completed"
     );
 
     return finalState;
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
-    console.error(`[consensus] FAILED: ${errorMsg}`);
+    const consensusLogger = runLogger.child({ phase: "consensus" });
+    consensusLogger.error({ error: errorMsg }, "Consensus arbiter failed");
 
     emitState({
       phase: "error",

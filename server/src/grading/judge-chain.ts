@@ -22,7 +22,7 @@ import { invokeWithStructuredOutput } from "./structured-output";
 /**
  * Input parameters for running a single judge evaluation
  */
-export interface JudgeInput {
+interface JudgeInput {
   /**
    * Proposal identifier (passed through to output)
    */
@@ -60,7 +60,7 @@ export interface JudgeInput {
 /**
  * Result from a judge evaluation including tier and token usage
  */
-export interface JudgeResult {
+interface JudgeResult {
   /**
    * Validated judge output matching JudgeOutputType schema
    */

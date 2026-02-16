@@ -15,10 +15,10 @@
 
 import { zodTextFormat } from "openai/helpers/zod";
 import type { ZodSchema } from "zod";
-import { MAX_COMPLETION_TOKENS, MODEL, client } from "./llm";
+import { client, MAX_COMPLETION_TOKENS, MODEL } from "./llm";
 import { StructuredOutputError, type TierAttempt } from "./structured-output-errors";
 
-export interface InvokeOptions {
+interface InvokeOptions {
   /**
    * System prompt
    */
@@ -58,6 +58,21 @@ export interface StructuredInvokeResult<T> {
     promptTokens: number;
     completionTokens: number;
     totalTokens: number;
+  };
+}
+
+/**
+ * Represents the shape of Azure Responses API response objects.
+ * Subset of the OpenAI SDK Response interface with only the fields we use.
+ */
+interface AzureResponsesAPIResponse {
+  status?: string;
+  incomplete_details?: { reason?: "max_output_tokens" | "content_filter" } | null;
+  output_text: string;
+  usage?: {
+    input_tokens?: number;
+    output_tokens?: number;
+    total_tokens?: number;
   };
 }
 
@@ -122,6 +137,69 @@ function getTierName(tier: 1 | 2 | 3): string {
 }
 
 /**
+ * Extract and validate response text from Azure Responses API
+ *
+ * @param response - Raw response from Azure Responses API
+ * @returns The output text content
+ * @throws Error if response status is not "completed" or output_text is missing
+ */
+function extractResponseText(response: unknown): string {
+  const responseObj = response as AzureResponsesAPIResponse;
+
+  // Check response status before accessing content
+  if (responseObj.status && responseObj.status !== "completed") {
+    const details = responseObj.incomplete_details
+      ? `: ${JSON.stringify(responseObj.incomplete_details)}`
+      : "";
+    throw new Error(`Azure Responses API returned status "${responseObj.status}"${details}`);
+  }
+
+  // Responses API uses output_text (convenience) or output[].content[].text
+  const content = responseObj.output_text;
+  if (!content) {
+    throw new Error(
+      `No output_text from Azure Responses API (status: ${responseObj.status ?? "unknown"}). ` +
+        `Response: ${JSON.stringify(response).substring(0, 300)}`
+    );
+  }
+
+  return content;
+}
+
+/**
+ * Parse JSON content and validate against Zod schema
+ *
+ * @param content - JSON string to parse
+ * @param schema - Zod schema for validation
+ * @returns Validated object matching schema
+ * @throws Error if JSON parsing or Zod validation fails
+ */
+function parseAndValidateJson<T>(
+  content: string,
+  // biome-ignore lint/suspicious/noExplicitAny: Schema validation happens at runtime
+  schema: ZodSchema<any>
+): T {
+  // Parse JSON with better error handling
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(content);
+  } catch (parseError) {
+    throw new Error(
+      `JSON.parse failed: ${parseError instanceof Error ? parseError.message : String(parseError)}. Content (first 200 chars): ${content.substring(0, 200)}`
+    );
+  }
+
+  // Validate with Zod
+  try {
+    return schema.parse(parsed) as T;
+  } catch (zodError) {
+    throw new Error(
+      `Zod validation failed: ${zodError instanceof Error ? zodError.message : String(zodError)}`
+    );
+  }
+}
+
+/**
  * Attempt a single tier with proper error handling
  */
 async function attemptTier<T>(
@@ -152,45 +230,13 @@ async function attemptTier<T>(
       max_output_tokens: options.maxTokens,
     } as any); // Type assertion needed due to SDK type limitations
 
-    // biome-ignore lint/suspicious/noExplicitAny: Response shape varies between SDK types
-    const responseObj = response as any;
+    // Extract and validate response text
+    const content = extractResponseText(response);
 
-    // Check response status before accessing content
-    if (responseObj.status && responseObj.status !== "completed") {
-      const details = responseObj.incomplete_details
-        ? `: ${JSON.stringify(responseObj.incomplete_details)}`
-        : "";
-      throw new Error(`Azure Responses API returned status "${responseObj.status}"${details}`);
-    }
+    // Parse JSON and validate with Zod
+    const validated = parseAndValidateJson<T>(content, schema);
 
-    // Responses API uses output_text (convenience) or output[].content[].text
-    const content = responseObj.output_text;
-    if (!content) {
-      throw new Error(
-        `No output_text from Azure Responses API (status: ${responseObj.status ?? "unknown"}). ` +
-          `Response: ${JSON.stringify(response).substring(0, 300)}`
-      );
-    }
-
-    // Parse JSON with better error handling
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(content);
-    } catch (parseError) {
-      throw new Error(
-        `JSON.parse failed: ${parseError instanceof Error ? parseError.message : String(parseError)}. Content (first 200 chars): ${content.substring(0, 200)}`
-      );
-    }
-
-    // Validate with Zod
-    let validated: T;
-    try {
-      validated = schema.parse(parsed) as T;
-    } catch (zodError) {
-      throw new Error(
-        `Zod validation failed: ${zodError instanceof Error ? zodError.message : String(zodError)}`
-      );
-    }
+    const responseObj = response as AzureResponsesAPIResponse;
 
     return {
       success: true,

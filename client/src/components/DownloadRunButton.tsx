@@ -6,8 +6,6 @@ interface DownloadRunButtonProps {
 }
 
 export default function DownloadRunButton({ state }: DownloadRunButtonProps) {
-  if (state.phase !== "done") return null;
-
   const handleDownload = useCallback(() => {
     const json = JSON.stringify(state, null, 2);
     const blob = new Blob([json], { type: "application/json" });
@@ -24,6 +22,8 @@ export default function DownloadRunButton({ state }: DownloadRunButtonProps) {
 
     URL.revokeObjectURL(url);
   }, [state]);
+
+  if (state.phase !== "done") return null;
 
   return (
     <button

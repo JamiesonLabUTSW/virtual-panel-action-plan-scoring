@@ -119,6 +119,7 @@ describe("checkContentSafety", () => {
   it("should catch Azure DefaultV2 content filter rejection (content_filter)", async () => {
     // Mock Azure content filter error
     const contentFilterError = new Error("content_filter violation detected");
+    // biome-ignore lint/suspicious/noExplicitAny: OpenAI SDK error extension
     (contentFilterError as any).status = 400;
 
     mockClient.responses.create.mockRejectedValue(contentFilterError);
@@ -130,9 +131,11 @@ describe("checkContentSafety", () => {
     expect(result.latencyMs).toBeGreaterThanOrEqual(0);
   });
 
+  // biome-ignore lint/security/noSecrets: test name, not a secret
   it("should catch Azure DefaultV2 content filter rejection (ResponsibleAIPolicyViolation)", async () => {
     // Mock Azure ResponsibleAI policy error
     const policyError = new Error("ResponsibleAIPolicyViolation detected");
+    // biome-ignore lint/suspicious/noExplicitAny: OpenAI SDK error extension
     (policyError as any).status = 400;
 
     mockClient.responses.create.mockRejectedValue(policyError);
@@ -147,6 +150,7 @@ describe("checkContentSafety", () => {
   it("should re-throw non-content-filter API errors", async () => {
     // Mock network error (not a content safety issue)
     const networkError = new Error("Network timeout");
+    // biome-ignore lint/suspicious/noExplicitAny: OpenAI SDK error extension
     (networkError as any).status = 500;
 
     mockClient.responses.create.mockRejectedValue(networkError);
@@ -158,6 +162,7 @@ describe("checkContentSafety", () => {
   it("should re-throw authentication errors", async () => {
     // Mock auth error (not a content safety issue)
     const authError = new Error("Invalid API key");
+    // biome-ignore lint/suspicious/noExplicitAny: OpenAI SDK error extension
     (authError as any).status = 401;
 
     mockClient.responses.create.mockRejectedValue(authError);
@@ -168,6 +173,7 @@ describe("checkContentSafety", () => {
   it("should re-throw rate limit errors", async () => {
     // Mock rate limit error (not a content safety issue)
     const rateLimitError = new Error("Rate limit exceeded");
+    // biome-ignore lint/suspicious/noExplicitAny: OpenAI SDK error extension
     (rateLimitError as any).status = 429;
 
     mockClient.responses.create.mockRejectedValue(rateLimitError);
@@ -201,6 +207,7 @@ describe("checkContentSafety", () => {
 
   it("should measure latency for Azure filter rejections", async () => {
     const contentFilterError = new Error("content_filter violation");
+    // biome-ignore lint/suspicious/noExplicitAny: OpenAI SDK error extension
     (contentFilterError as any).status = 400;
 
     mockClient.responses.create.mockRejectedValue(contentFilterError);

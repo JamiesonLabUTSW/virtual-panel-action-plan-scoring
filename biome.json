@@ -1,12 +1,12 @@
 {
-  "$schema": "https://biomejs.dev/schemas/1.9.4/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.3.15/schema.json",
   "vcs": {
     "enabled": true,
     "clientKind": "git",
     "useIgnoreFile": true
   },
   "files": {
-    "ignore": ["node_modules", "dist", "build", "coverage", "*.min.js"]
+    "includes": ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.json"]
   },
   "formatter": {
     "enabled": true,
@@ -14,13 +14,21 @@
     "indentWidth": 2,
     "lineWidth": 100
   },
-  "organizeImports": {
-    "enabled": true
+  "assist": {
+    "actions": {
+      "source": {
+        "organizeImports": "on"
+      }
+    }
   },
   "linter": {
     "enabled": true,
     "rules": {
       "recommended": true,
+      "a11y": {
+        "noStaticElementInteractions": "warn",
+        "useAriaPropsSupportedByRole": "warn"
+      },
       "complexity": {
         "noExcessiveCognitiveComplexity": "warn",
         "noForEach": "off"
@@ -29,9 +37,15 @@
         "noNonNullAssertion": "warn",
         "useImportType": "error"
       },
+      "security": {
+        "noGlobalEval": "error",
+        "noDangerouslySetInnerHtml": "error",
+        "noDangerouslySetInnerHtmlWithChildren": "error",
+        "noSecrets": "error"
+      },
       "suspicious": {
         "noExplicitAny": "warn",
-        "noConsoleLog": "warn"
+        "noConsole": "warn"
       }
     }
   },

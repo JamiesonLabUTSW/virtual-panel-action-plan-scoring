@@ -92,11 +92,11 @@ export default function ChatSidebar({ state, visible, children }: ChatSidebarPro
       >
         {/* Mobile backdrop */}
         {isOpen && (
-          <div
+          <button
+            type="button"
             className="absolute inset-0 bg-black/50 xl:hidden"
             onClick={() => setIsOpen(false)}
-            onKeyDown={() => {}}
-            role="presentation"
+            aria-label="Close chat sidebar"
           />
         )}
 

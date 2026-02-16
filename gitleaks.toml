@@ -1,0 +1,32 @@
+# Gitleaks configuration for secret scanning
+# https://github.com/gitleaks/gitleaks
+
+title = "Multi-Judge Grading Demo - Secret Scanning Config"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Allowlisted files and patterns"
+regexTarget = "match"
+paths = [
+  '''(^|/)\.env\.example''',
+  '''(^|/)\.env\.template''',
+  '''(^|/)example\.env''',
+]
+regexes = [
+  '''\btest-key-[0-9a-f]+\b''',
+  '''\bfake-secret\b''',
+  '''\bmock-token\b''',
+
+  # Placeholder values in docs/comments
+  '''\bYOUR_API_KEY_HERE\b''',
+  '''\bREPLACE_WITH_YOUR\b''',
+  '''<YOUR_.*>''',
+]
+
+[[allowlists]]
+description = "Known false positives in git history"
+commits = [
+  "4a455d1c6bd280adb7b577a846785f590c52e45f",  # GitHub private-user-images JWT (issue #72)
+]

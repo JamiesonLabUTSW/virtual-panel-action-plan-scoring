@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { exitIfInvalid, validateRequiredEnvVars } from "../config/env-validation";
+import * as loggerModule from "../utils/logger";
 
 /**
  * Unit tests for environment variable validation (Issue #21)
@@ -105,18 +106,17 @@ describe("validateRequiredEnvVars", () => {
 
 describe("exitIfInvalid", () => {
   // biome-ignore lint/suspicious/noExplicitAny: Vitest spy types are complex
-  let consoleErrorSpy: any;
+  let loggerErrorSpy: any;
   // biome-ignore lint/suspicious/noExplicitAny: Vitest spy types are complex
   let processExitSpy: any;
 
   beforeEach(() => {
-    consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    loggerErrorSpy = vi.spyOn(loggerModule.logger, "error").mockImplementation(() => {});
     processExitSpy = vi.spyOn(process, "exit").mockImplementation((() => {}) as never);
   });
 
   afterEach(() => {
-    consoleErrorSpy.mockRestore();
-    processExitSpy.mockRestore();
+    vi.restoreAllMocks();
   });
 
   it("should not exit when validation result is valid", () => {
@@ -133,7 +133,7 @@ describe("exitIfInvalid", () => {
     exitIfInvalid(validResult);
 
     expect(processExitSpy).not.toHaveBeenCalled();
-    expect(consoleErrorSpy).not.toHaveBeenCalled();
+    expect(loggerErrorSpy).not.toHaveBeenCalled();
   });
 
   it("should exit with code 1 when validation result is invalid", () => {
@@ -146,8 +146,10 @@ describe("exitIfInvalid", () => {
     exitIfInvalid(invalidResult);
 
     expect(processExitSpy).toHaveBeenCalledWith(1);
-    expect(consoleErrorSpy).toHaveBeenCalledWith("❌ Missing required environment variables:");
-    expect(consoleErrorSpy).toHaveBeenCalledWith("   - AZURE_OPENAI_API_KEY");
+    expect(loggerErrorSpy).toHaveBeenCalledWith(
+      { missingVars: ["AZURE_OPENAI_API_KEY"] },
+      "Missing required environment variables"
+    );
   });
 
   it("should log all missing variables", () => {
@@ -160,9 +162,11 @@ describe("exitIfInvalid", () => {
     exitIfInvalid(invalidResult);
 
     expect(processExitSpy).toHaveBeenCalledWith(1);
-    expect(consoleErrorSpy).toHaveBeenCalledTimes(4); // 1 header + 3 vars
-    expect(consoleErrorSpy).toHaveBeenCalledWith("   - AZURE_OPENAI_API_KEY");
-    expect(consoleErrorSpy).toHaveBeenCalledWith("   - AZURE_OPENAI_RESOURCE");
-    expect(consoleErrorSpy).toHaveBeenCalledWith("   - AZURE_OPENAI_DEPLOYMENT");
+    expect(loggerErrorSpy).toHaveBeenCalledWith(
+      {
+        missingVars: ["AZURE_OPENAI_API_KEY", "AZURE_OPENAI_RESOURCE", "AZURE_OPENAI_DEPLOYMENT"],
+      },
+      "Missing required environment variables"
+    );
   });
 });

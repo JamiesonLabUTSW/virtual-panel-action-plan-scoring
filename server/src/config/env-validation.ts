@@ -3,7 +3,9 @@
  * Extracted for testability (Issue #21)
  */
 
-export interface EnvValidationResult {
+import { logger } from "../utils/logger";
+
+interface EnvValidationResult {
   isValid: boolean;
   missingVars: string[];
   values: {
@@ -42,10 +44,7 @@ export function validateRequiredEnvVars(env: NodeJS.ProcessEnv = process.env): E
  */
 export function exitIfInvalid(result: EnvValidationResult): void {
   if (!result.isValid) {
-    console.error("❌ Missing required environment variables:");
-    for (const envVar of result.missingVars) {
-      console.error(`   - ${envVar}`);
-    }
+    logger.error({ missingVars: result.missingVars }, "Missing required environment variables");
     process.exit(1);
   }
 }

@@ -25,6 +25,7 @@ vi.mock("../few-shot-sets", () => ({
   RATER_C_EXAMPLES: "mock-rater-c-examples",
 }));
 
+// biome-ignore lint/suspicious/noExplicitAny: Dynamic import with vi.mock() loses type info
 const { runGradingPipeline } = (await import("../orchestrator")) as any;
 
 // Helpers
@@ -71,13 +72,12 @@ function createMockConsensusResult(finalScore: number) {
 }
 
 describe("runGradingPipeline", () => {
-  // biome-ignore lint/suspicious/noExplicitAny: Mock callback type doesn't match vi.fn() return
-  let emitState: any;
+  let emitState: ReturnType<typeof vi.fn<(state: Partial<GradingState>) => void>>;
   let emittedStates: Partial<GradingState>[];
 
   beforeEach(() => {
     emittedStates = [];
-    emitState = vi.fn((state: Partial<GradingState>) => {
+    emitState = vi.fn<(state: Partial<GradingState>) => void>((state: Partial<GradingState>) => {
       emittedStates.push(state);
     });
     vi.clearAllMocks();

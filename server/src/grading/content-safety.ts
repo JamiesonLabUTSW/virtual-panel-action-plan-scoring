@@ -13,7 +13,18 @@
  * @see {@link SPEC.md} §10 for security controls specification
  */
 
-import { MODEL, client } from "./llm";
+import { isAPIErrorLike } from "../utils/error-handling.js";
+import { logger } from "../utils/logger";
+import { client, MODEL } from "./llm";
+
+const safetyLogger = logger.child({ component: "contentSafety" });
+
+/**
+ * Minimal interface for Azure Responses API safety check response
+ */
+interface SafetyCheckResponse {
+  output_text?: string;
+}
 
 /**
  * Result of content safety check
@@ -96,8 +107,7 @@ export async function checkContentSafety(proposalText: string): Promise<ContentS
     const latencyMs = Date.now() - startTime;
 
     // Parse response - Responses API uses output_text for convenience
-    // biome-ignore lint/suspicious/noExplicitAny: Response type varies between SDK versions
-    const responseObj = response as any;
+    const responseObj = response as SafetyCheckResponse;
     const rawOutput = responseObj.output_text?.trim() ?? "";
     // Extract classification: check if the response contains SAFE/UNSAFE anywhere
     // (reasoning models may include extra text around the classification)
@@ -116,27 +126,32 @@ export async function checkContentSafety(proposalText: string): Promise<ContentS
     }
 
     // Unexpected response - log for debugging, treat as unsafe out of caution
-    console.warn(`[content-safety] unexpected classifier output: "${rawOutput.slice(0, 100)}"`);
+    safetyLogger.warn(
+      { rawOutput: rawOutput.slice(0, 100), outputLength: rawOutput.length },
+      "Unexpected classifier output"
+    );
     return {
       isSafe: false,
       reason: `Unexpected classifier response: ${rawOutput.slice(0, 50)}`,
       latencyMs,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     const latencyMs = Date.now() - startTime;
 
-    // Check if Azure DefaultV2 guardrail blocked it
-    // Azure returns 400 status with error codes like "content_filter" or "ResponsibleAIPolicyViolation"
-    if (
-      error.status === 400 &&
-      (error.message?.includes("content_filter") ||
-        error.message?.includes("ResponsibleAIPolicyViolation"))
-    ) {
-      return {
-        isSafe: false,
-        reason: "Azure content filter violation",
-        latencyMs,
-      };
+    if (isAPIErrorLike(error)) {
+      // Check if Azure DefaultV2 guardrail blocked it
+      // Azure returns 400 status with error codes like "content_filter" or "ResponsibleAIPolicyViolation"
+      if (
+        error.status === 400 &&
+        (error.message?.includes("content_filter") ||
+          error.message?.includes("ResponsibleAIPolicyViolation"))
+      ) {
+        return {
+          isSafe: false,
+          reason: "Azure content filter violation",
+          latencyMs,
+        };
+      }
     }
 
     // Other API errors (network, auth, rate limit, etc.) - re-throw

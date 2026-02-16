@@ -16,9 +16,7 @@ try {
     encoding: "utf8",
   });
   stagedFiles = output.trim().split("\n").filter(Boolean);
-} catch (error) {
-  console.warn("⚠ Could not detect staged files from git:", error.message);
-  console.warn("Skipping type-check (not in git repo or git error)");
+} catch (_error) {
   process.exit(0);
 }
 
@@ -57,8 +55,7 @@ for (const workspace of workspaces) {
       cwd: workspacePath,
       stdio: "inherit",
     });
-  } catch (error) {
-    console.error(`✗ ${workspace} type-check failed`);
+  } catch (_error) {
     hasErrors = true;
   }
 }
