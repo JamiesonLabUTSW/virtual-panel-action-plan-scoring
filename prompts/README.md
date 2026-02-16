@@ -374,4 +374,4 @@ code:
 ## Questions?
 
 For implementation details, see the source files and SPEC.md. For architectural decisions, see
-CLAUDE.md and the phase plans in `docs/plan/`.
+CLAUDE.md.

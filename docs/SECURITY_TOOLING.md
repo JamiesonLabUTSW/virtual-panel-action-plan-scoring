@@ -21,7 +21,7 @@ npm run audit:fix
 
 **Pre-commit behavior:**
 
-- `audit:security` runs automatically before staged file checks
+- `audit:security` runs automatically after `secrets:check` and before `lint-staged`
 - Shows high/critical vulnerabilities but never blocks commits
 - Provides visibility into dependency risks without disrupting workflow
 
@@ -83,7 +83,7 @@ npm run secrets:scan-all
 
 **Configuration:**
 
-- `.gitleaks.toml` - allowlist for test fixtures and example files
+- `gitleaks.toml` - allowlist for test fixtures and example files
 - Uses gitleaks default ruleset for common secret patterns
 - Detects: AWS keys, GitHub tokens, private keys, passwords, etc.
 
@@ -92,7 +92,7 @@ npm run secrets:scan-all
 1. Review the warning output carefully
 2. Remove sensitive data from staged files
 3. Use environment variables (`.env` - never commit this!)
-4. Add false positives to `.gitleaks.toml` allowlist
+4. Add false positives to `gitleaks.toml` allowlist
 5. If secret was committed, rotate it immediately
 
 **Common false positives:**
@@ -176,13 +176,14 @@ lodash-es.
 
 Two additional vulnerabilities were mitigated using npm overrides (see `package.json`):
 
-1. **prismjs ≤1.30.0 (GHSA-x7hr-w5r2-h6wg, DOM Clobbering)**
+1. **prismjs ≤1.27.0 (GHSA-x7hr-w5r2-h6wg, DOM Clobbering)**
    - Pinned to 1.30.0 via override
    - Used by @copilotkit/react-ui for syntax highlighting in chat
    - Fix allows upgrade while maintaining CopilotKit compatibility
 
 2. **esbuild ≤0.24.2 (GHSA-67mh-4wv8-2f99, SSRF in dev server)**
    - Overridden to `>=0.25.0` to force all transitive references above the vulnerable range
+   - Current deployment: esbuild@0.27.3
    - Dev-only build tool, no production impact
 
 3. **rxjs (deduplication override)**

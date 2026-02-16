@@ -1,6 +1,6 @@
 {
   "name": "@grading/client",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "React frontend with CopilotKit UI for the grading demo",
   "private": true,
   "type": "module",

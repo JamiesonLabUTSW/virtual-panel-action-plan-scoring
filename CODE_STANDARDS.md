@@ -400,4 +400,3 @@ If you see conflicts, file an issue.
 - **TypeDoc docs:** https://typedoc.org/
 - **Knip docs:** https://knip.dev/
 - **Project spec:** `SPEC.md`
-- **Phase plan:** `docs/plan/01-scaffolding.md`

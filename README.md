@@ -234,7 +234,6 @@ differences, attempting strict JSON Schema validation first and gracefully degra
 ## Documentation
 
 - **`SPEC.md`** — Complete technical specification (source of truth for implementation details)
-- **`docs/plan/`** — Phase-by-phase implementation plans with detailed sub-issues
 - **`CODE_STANDARDS.md`** — Development workflow, tooling conventions, and quality standards
 - **`CLAUDE.md`** — Project context and guidance for AI-assisted development
 - **`prompts/README.md`** — Prompt template documentation (judge system, consensus arbiter, few-shot
