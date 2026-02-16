@@ -184,4 +184,155 @@ describe("runJudge", () => {
       })
     ).rejects.toThrow("All 3 tiers failed");
   });
+
+  it("should use custom timeoutMs when provided", async () => {
+    const setTimeoutSpy = vi.spyOn(global, "setTimeout");
+    mockInvokeWithStructuredOutput.mockResolvedValue(createMockJudgeResult());
+
+    await runJudge({
+      proposalId: 1,
+      evaluatorId: 1,
+      evaluatorName: "Rater A",
+      actionItemsText: "1. Test",
+      fewShotExamples: "Examples",
+      timeoutMs: 5000,
+    });
+
+    expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 5000);
+    setTimeoutSpy.mockRestore();
+  });
+
+  it("should use default timeout (60000ms) when timeoutMs not provided", async () => {
+    const setTimeoutSpy = vi.spyOn(global, "setTimeout");
+    mockInvokeWithStructuredOutput.mockResolvedValue(createMockJudgeResult());
+
+    await runJudge({
+      proposalId: 1,
+      evaluatorId: 1,
+      evaluatorName: "Rater A",
+      actionItemsText: "1. Test",
+      fewShotExamples: "Examples",
+    });
+
+    expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 60000);
+    setTimeoutSpy.mockRestore();
+  });
+
+  it("should call clearTimeout in finally block on success path", async () => {
+    const clearTimeoutSpy = vi.spyOn(global, "clearTimeout");
+    mockInvokeWithStructuredOutput.mockResolvedValue(createMockJudgeResult());
+
+    await runJudge({
+      proposalId: 1,
+      evaluatorId: 1,
+      evaluatorName: "Rater A",
+      actionItemsText: "1. Test",
+      fewShotExamples: "Examples",
+      timeoutMs: 5000,
+    });
+
+    expect(clearTimeoutSpy).toHaveBeenCalled();
+    clearTimeoutSpy.mockRestore();
+  });
+
+  it("should call clearTimeout in finally block on error path", async () => {
+    const clearTimeoutSpy = vi.spyOn(global, "clearTimeout");
+    const mockError = new Error("API call failed");
+    mockInvokeWithStructuredOutput.mockRejectedValue(mockError);
+
+    await expect(
+      runJudge({
+        proposalId: 1,
+        evaluatorId: 1,
+        evaluatorName: "Rater A",
+        actionItemsText: "1. Test",
+        fewShotExamples: "Examples",
+        timeoutMs: 5000,
+      })
+    ).rejects.toThrow("API call failed");
+
+    expect(clearTimeoutSpy).toHaveBeenCalled();
+    clearTimeoutSpy.mockRestore();
+  });
+
+  it("should clean up timeout after successful evaluation", async () => {
+    const setTimeoutSpy = vi.spyOn(global, "setTimeout");
+    const clearTimeoutSpy = vi.spyOn(global, "clearTimeout");
+    mockInvokeWithStructuredOutput.mockResolvedValue(createMockJudgeResult());
+
+    await runJudge({
+      proposalId: 1,
+      evaluatorId: 1,
+      evaluatorName: "Rater A",
+      actionItemsText: "1. Test",
+      fewShotExamples: "Examples",
+      timeoutMs: 10000,
+    });
+
+    // Verify both setTimeout and clearTimeout were called
+    expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 10000);
+    expect(clearTimeoutSpy).toHaveBeenCalled();
+
+    // Verify clearTimeout was called with a valid timeout ID (number or timeout object)
+    const clearTimeoutCall = clearTimeoutSpy.mock.calls[0]?.[0];
+    expect(clearTimeoutCall).toBeDefined();
+
+    setTimeoutSpy.mockRestore();
+    clearTimeoutSpy.mockRestore();
+  });
+
+  it("should clean up timeout even when evaluation fails", async () => {
+    const setTimeoutSpy = vi.spyOn(global, "setTimeout");
+    const clearTimeoutSpy = vi.spyOn(global, "clearTimeout");
+    const mockError = new Error("Evaluation failed");
+    mockInvokeWithStructuredOutput.mockRejectedValue(mockError);
+
+    await expect(
+      runJudge({
+        proposalId: 1,
+        evaluatorId: 1,
+        evaluatorName: "Rater A",
+        actionItemsText: "1. Test",
+        fewShotExamples: "Examples",
+        timeoutMs: 10000,
+      })
+    ).rejects.toThrow("Evaluation failed");
+
+    // Verify both setTimeout and clearTimeout were called
+    expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 10000);
+    expect(clearTimeoutSpy).toHaveBeenCalled();
+
+    // Verify clearTimeout was called with a valid timeout ID (number or timeout object)
+    const clearTimeoutCall = clearTimeoutSpy.mock.calls[0]?.[0];
+    expect(clearTimeoutCall).toBeDefined();
+
+    setTimeoutSpy.mockRestore();
+    clearTimeoutSpy.mockRestore();
+  });
+
+  /**
+   * SKIPPED: Timeout abort branches (lines 187-189, 199-202, 206-213)
+   *
+   * These branches check abortController.signal.aborted, which is "prepared
+   * for future SDK support" (line 156 comment). The abort signal is NOT
+   * wired to the OpenAI SDK call in invokeWithStructuredOutput.
+   *
+   * Current limitation: Even if setTimeout fires and calls abort(), the
+   * API call completes normally because the signal isn't passed to the SDK.
+   *
+   * TODO: Enable when @langchain/openai supports AbortController in Responses API
+   */
+  describe.skip("timeout abort handling (future SDK support)", () => {
+    it("should throw when timeout occurs before API call", async () => {
+      // TODO: Implement when SDK supports abort signals
+    });
+
+    it("should throw when timeout occurs after API call", async () => {
+      // TODO: Implement when SDK supports abort signals
+    });
+
+    it("should throw with original error context when timeout in catch block", async () => {
+      // TODO: Implement when SDK supports abort signals
+    });
+  });
 });
