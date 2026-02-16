@@ -1,6 +1,6 @@
 {
   "name": "multi-judge-grading-demo",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Calibrated LLM-as-a-judge panel on Hugging Face Spaces",
   "private": true,
   "type": "module",

@@ -10,7 +10,6 @@ features → deploy). Before starting work, read:
 
 - Issue epic (e.g., Phase 1: Project Scaffolding)
 - Sub-issue with specific requirements (e.g., #9: Initialize Root Monorepo)
-- Relevant phase plan in `docs/plan/` (e.g., `01-scaffolding.md`)
 
 ## Key References
 
@@ -22,9 +21,6 @@ features → deploy). Before starting work, read:
   - §5.1-5.4: Backend implementation with code samples
   - §7.1-7.5: Frontend implementation with code samples
   - §9.1-9.4: Project layout, path aliases, tsup config, Dockerfile
-- `docs/plan/00-PLAN.md` — Phase overview with dependency graph and team parallelism
-- `docs/plan/01-scaffolding.md` through `docs/plan/08-polish-deploy.md` — Detailed sub-issues per
-  phase
 
 ## Project Overview
 
@@ -36,8 +32,8 @@ then a consensus arbiter reconciles their scores. The full specification lives i
 ## Stack
 
 - **LLM:** gpt-5.1-codex-mini via Azure OpenAI v1 API
-- **Backend:** Express.js + CopilotKit Runtime (`@copilotkit/runtime`) + LangChain.js
-  (`@langchain/openai`)
+- **Backend:** Express.js + CopilotKit Runtime (`@copilotkit/runtime`) + OpenAI SDK v6 (direct
+  Responses API access)
 - **Frontend:** React + CopilotKit (`@copilotkit/react-core`, `@copilotkit/react-ui`)
 - **Structured output:** Zod schemas + `withStructuredOutput({ strict: true })` with 3-tier fallback
 - **Build:** tsup (server) + Vite (client), Docker multi-stage
@@ -158,7 +154,7 @@ Express (port 7860)
     ├── GET  /                → React static build
     ├── POST /api/copilotkit  → CopilotKit Runtime
     │   └── Agent: gradeDocument (AbstractAgent)
-    │       └── Orchestrator (LangChain.js)
+    │       └── Orchestrator (OpenAI SDK)
     │           ├── Judge A (Rater A few-shot calibration)
     │           ├── Judge B (Rater B few-shot calibration)
     │           ├── Judge C (Rater C few-shot calibration)
@@ -186,10 +182,12 @@ server/src/
   agents/grade-document-agent.ts  # CopilotKit agent (AbstractAgent subclass)
   grading/
     orchestrator.ts           # Parallel judge pipeline + progressive state emission
-    judge-chain.ts            # LangChain judge with 3-tier structured output fallback
-    consensus-chain.ts        # LangChain consensus arbiter
+    judge-chain.ts            # Judge evaluation with 3-tier structured output fallback
+    consensus-chain.ts        # Consensus arbiter
+    structured-output.ts      # 3-tier fallback helper (OpenAI Responses API)
     few-shot-sets.ts          # 15 calibration examples (5 per rater)
     rubric.ts                 # Shared rubric text
+    content-safety.ts         # Content safety validation
   resources/
     rubric.txt                # Evaluation rubric (system prompt)
     action_item/              # 8 medical specialty action item documents
@@ -223,9 +221,7 @@ This is a reasoning model with non-standard parameter support:
 - **DO NOT** pass `temperature`, `max_tokens`, or `top_p` — they will error
 - Use `max_output_tokens` (Responses API) or `max_completion_tokens` (Chat Completions API)
 - `reasoning_effort` defaults to `none`; set explicitly if needed
-- Use `useResponsesApi: true` in LangChain's `ChatOpenAI` config
-- In LangChain 1.2.7+: `maxTokens` parameter works correctly; older versions may not expose it in
-  types. Use whichever parameter works with the installed LangChain version.
+- Implementation uses OpenAI SDK v6 directly with `client.responses.create()` for Responses API
 
 **Azure Responses API (OpenAI SDK):**
 
@@ -240,19 +236,17 @@ This is a reasoning model with non-standard parameter support:
 
 ## Library Version Notes
 
-**LangChain version mismatch:** SPEC.md references structured output parameters (e.g.,
-`maxOutputTokens`) that may not exist in older LangChain versions (0.5.x). If implementation
-diverges from spec, check if `@langchain/openai` is outdated before assuming spec is wrong. Current
-versions (@langchain/openai 1.2.7+, @langchain/core 1.1.22+, openai 6.x) support all documented
-parameters.
+**OpenAI SDK:** Implementation uses OpenAI SDK v6 directly for Responses API access. Structured
+output parameters (`max_output_tokens`, `text.format`) are well-supported. Keep `openai` package at
+^6.0.0 or later.
 
-**Core dependency versions:** @langchain/openai, @langchain/core, openai SDK, and zod should be kept
-near latest. Major version upgrades of these packages typically have no breaking changes for this
-project; verify with `npm run type-check && npm run test --workspace=@grading/server`.
+**Core dependency versions:** OpenAI SDK, zod, and zod-to-json-schema should be kept near latest.
+Major version upgrades of these packages typically have no breaking changes for this project; verify
+with `npm run type-check && npm run test --workspace=@grading/server`.
 
 ## Azure OpenAI v1 Configuration
 
-Both CopilotKit and LangChain share one base URL pattern:
+Both CopilotKit and the grading orchestrator share one base URL pattern:
 
 ```
 https://${AZURE_OPENAI_RESOURCE}.openai.azure.com/openai/v1/
@@ -299,14 +293,26 @@ registered in `CopilotRuntime` via the `agents` record. A `default` agent **must
 alongside custom agents (CopilotKit's `CopilotListeners` always looks for it):
 
 ```typescript
-import { DummyDefaultAgent } from "./agents/dummy-default-agent";
+import { BuiltInAgent } from "@copilotkitnext/agent";
+import { createOpenAI as createAzureOpenAI } from "@ai-sdk/openai";
 import { GradeDocumentAgent } from "./agents/grade-document-agent";
+
+// Vercel AI SDK provider for CopilotKit's default agent
+const azureAIProvider = createAzureOpenAI({
+  baseURL: `https://${process.env.AZURE_OPENAI_RESOURCE}.openai.azure.com/openai/v1/`,
+  apiKey: process.env.AZURE_OPENAI_API_KEY,
+  headers: {
+    "api-key": process.env.AZURE_OPENAI_API_KEY,
+  },
+});
 
 const runtime = new CopilotRuntime({
   agents: {
-    default: new DummyDefaultAgent(),
+    default: new BuiltInAgent({
+      model: azureAIProvider(process.env.AZURE_OPENAI_DEPLOYMENT),
+    }),
     gradeDocument: new GradeDocumentAgent(),
-  },
+  } as any, // Type cast needed for SDK compatibility
 });
 ```
 
@@ -408,7 +414,7 @@ Exit with code 1 and clear error list. Never just warn—silent failures break p
 
 ## Library Integration & Documentation
 
-When integrating third-party libraries (especially complex ones like CopilotKit, LangChain):
+When integrating third-party libraries (especially complex ones like CopilotKit):
 
 - Use Context7 (`mcp__plugin_context7_context7__resolve-library-id` → `__query-docs`) to find
   official integration examples and patterns
@@ -495,7 +501,7 @@ lint/type/test failures block commits.
 **Coverage thresholds:** 80% per workspace (lines, functions, branches, statements). Reports
 warnings but does NOT fail builds.
 
-**Testing library upgrades:** When upgrading @langchain/\*, openai, or zod to latest versions,
+**Testing library upgrades:** When upgrading openai, zod, or zod-to-json-schema to latest versions,
 follow this safe path:
 
 1. Update package.json versions and run `npm install --workspaces`

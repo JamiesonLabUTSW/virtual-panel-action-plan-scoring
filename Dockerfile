@@ -101,14 +101,20 @@ RUN apt-get update && \
 WORKDIR /app
 RUN chown node:node /app
 
-# Copy package.json for npm metadata (needed by Node.js at runtime)
-COPY --chown=node:node --from=server-build /app/server/package*.json ./
+# Copy package.json and strip workspace-local deps (tsup bundles @shared inline)
+# npm resolves ALL deps in package.json (even devDeps with --omit=dev), so
+# @shared/types must be removed to avoid 404 from the public registry.
+COPY --chown=node:node --from=server-build /app/server/package.json ./
+RUN node -e "\
+  const pkg = JSON.parse(require('fs').readFileSync('package.json','utf8'));\
+  for (const k of ['dependencies','devDependencies']) \
+    if (pkg[k]) Object.keys(pkg[k]).filter(d=>d.startsWith('@shared/')).forEach(d=>delete pkg[k][d]);\
+  require('fs').writeFileSync('package.json', JSON.stringify(pkg, null, 2)+'\n');"
 
 # Install as node user so node_modules is owned correctly
 USER node
 
 # Strategy: Re-install with --omit=dev for clean production dependencies
-# This is MORE efficient than copying node_modules because:
 # 1. Excludes all devDependencies (tsup, tsx, @types/*, vitest, etc.)
 # 2. Produces smaller, cleaner dependency tree
 # 3. npm prunes unused transitive dependencies automatically

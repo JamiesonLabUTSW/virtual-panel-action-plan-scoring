@@ -49,6 +49,7 @@ const openaiClient = new OpenAI({
 
 // Create OpenAI adapter (cast to any due to SDK typing incompatibility)
 const openaiAdapter = new OpenAIAdapter({
+  // biome-ignore lint/suspicious/noExplicitAny: OpenAI SDK typing incompatibility with CopilotKit
   openai: openaiClient as any,
   model: AZURE_OPENAI_DEPLOYMENT,
 });
@@ -71,6 +72,7 @@ const gradingLimiter = rateLimit({
     req.log.warn({ ip }, "Rate limit exceeded");
 
     // Type assertion needed: req.rateLimit added by express-rate-limit at runtime
+    // biome-ignore lint/suspicious/noExplicitAny: express-rate-limit extends req at runtime
     const rateLimitInfo = (req as any).rateLimit;
     const retryAfter = rateLimitInfo?.resetTime
       ? Math.ceil(rateLimitInfo.resetTime.getTime() / 1000)
@@ -92,6 +94,7 @@ const copilotRuntime = new CopilotRuntime({
       model: azureAIProvider(AZURE_OPENAI_DEPLOYMENT),
     }),
     gradeDocument: new GradeDocumentAgent(),
+    // biome-ignore lint/suspicious/noExplicitAny: CopilotKit SDK type compatibility
   } as any,
 });
 
@@ -102,6 +105,7 @@ app.use(express.json({ limit: REQUEST_SIZE_LIMIT }));
 // Pass logger via the `logger` option (not as second positional arg)
 app.use(
   pinoHttp({
+    // biome-ignore lint/suspicious/noExplicitAny: pino-http v10 type compatibility with pino v9
     logger: logger as any,
     // Custom log levels based on response status
     customLogLevel: (_req, res) => {
@@ -160,6 +164,7 @@ const copilotHandler = copilotRuntimeNodeHttpEndpoint({
   endpoint: "/api/copilotkit",
   runtime: copilotRuntime,
   serviceAdapter: openaiAdapter,
+  // biome-ignore lint/suspicious/noExplicitAny: CopilotKit Express handler type compatibility
 }) as any;
 
 app.use((req, res, next) => {

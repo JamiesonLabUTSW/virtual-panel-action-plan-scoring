@@ -102,7 +102,7 @@ export default function ChatSidebar({ state, visible, children }: ChatSidebarPro
 
         {/* Chat panel */}
         <div
-          className="absolute right-0 top-0 bottom-0 w-full max-w-[384px] xl:relative xl:w-96
+          className="absolute right-0 top-0 bottom-0 w-full max-w-[384px] xl:relative xl:w-96 xl:h-full
           bg-surface-800 border-l border-[var(--border-structural)] flex flex-col"
         >
           {/* Header */}
