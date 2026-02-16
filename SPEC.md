@@ -1163,8 +1163,6 @@ item text is loaded from `server/src/resources/action_item/{specialty}.md`.
 - **Consistent voice:** Each rater's rationales reflect their focus areas (Rater A emphasizes
   structure and metrics; Rater B emphasizes clarity and feasibility; Rater C emphasizes
   actionability and data).
-- **Real-world data:** Examples are based on actual medical residency program action items, not
-  synthetic data, providing authentic domain context.
 
 ### 8.5 Storage
 
@@ -1523,7 +1521,7 @@ must change before proceeding.
 | **No `temperature` for judge variance**                | GPT-5.1-codex-mini is a reasoning model; `temperature` is unsupported. Judge variance comes from calibration sets, which is the correct experimental design anyway.                                                                    |
 | **Parallel judges, not sequential**                    | Faster completion (~3x speedup). Progressive state emissions as each judge completes provide clear UX. Rate limit risk acceptable for demo with limited concurrent users. Sequential can be added as fallback for shared environments. |
 | **Consensus as constrained arbiter, not re-evaluator** | If consensus re-reads the proposal, the panel collapses into a single model call with extra steps. Constraining to `[min, max]` and requiring judge-rationale-based justification preserves the multi-judge value.                     |
-| **Domain pivot to medical residency evaluation**       | Real-world medical program action items from resources/ provide authentic domain context and realistic scoring variance. Per-item feedback format matches actual program evaluation workflows.                                         |
+| **Domain pivot to medical residency evaluation**       | Synthetic medical program action items from resources/ provide realistic domain context and scoring variance for demonstration purposes. Per-item feedback format matches actual program evaluation workflows.                         |
 | **Per-item feedback (not criteria)**                   | Action items are the natural evaluation unit for program proposals. Per-item comments and scores provide more actionable feedback than abstract criterion scores.                                                                      |
 | **3-tier structured output fallback**                  | Azure v1 + LangChain.js + GPT-5.1 is an undertested combination. Strategy-based fallback (json_schema → tool calling → json_object + Zod) is more robust than prompt-based retry.                                                      |
 | **tsup server bundling**                               | Inlines `shared/` code into server bundle, eliminating Docker runtime path issues.                                                                                                                                                     |
