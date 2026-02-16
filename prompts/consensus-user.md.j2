@@ -1,0 +1,41 @@
+# Consensus User Prompt Template
+
+<!--
+This template shows the structure of the user prompt sent to the consensus arbiter.
+It formats judge results and asks the arbiter to synthesize them into a consensus evaluation.
+Source: server/src/grading/consensus-chain.ts function formatConsensusUserPrompt() (lines 172-216)
+Template format: Jinja2
+-->
+
+## Judge Evaluations
+
+{# Each judge's evaluation is presented in a subsection with their persona and overall score.
+   The arbiter reads these rationales and synthesizes them. #}
+
+### Rater A (The Professor) — Overall Score: {{ rater_a_score }}/5
+
+{{ rater_a_result }}
+{# Full structured evaluation result from Rater A in JSON format.
+   Contains per-item comments and scores, plus overall assessment. #}
+
+### Rater B (The Editor) — Overall Score: {{ rater_b_score }}/5
+
+{{ rater_b_result }}
+{# Full structured evaluation result from Rater B in JSON format.
+   Contains per-item comments and scores, plus overall assessment. #}
+
+### Rater C (The Practitioner) — Overall Score: {{ rater_c_score }}/5
+
+{{ rater_c_result }}
+{# Full structured evaluation result from Rater C in JSON format.
+   Contains per-item comments and scores, plus overall assessment. #}
+
+{% if missingJudgeCount > 0 %}
+NOTE: {{ missingJudgeCount }} judge(s) did not complete evaluation. Acknowledge the
+missing perspective and proceed with consensus from available judges.
+{% endif %}
+{# If fewer than 3 judges succeeded, this note reminds the arbiter to acknowledge
+   reduced confidence in the consensus evaluation. #}
+
+Synthesize these evaluations into a consensus assessment. Return your synthesis
+as valid JSON.
