@@ -1,0 +1,37 @@
+# Judge User Prompt Template
+
+<!--
+This template shows the structure of the user prompt sent to each judge.
+It includes calibration examples (few-shot learning) and the proposal to evaluate.
+Source: server/src/grading/judge-chain.ts lines 170-184
+Template format: Jinja2
+-->
+
+## Calibration Examples
+
+{# Few-shot examples for the specific evaluator persona (Rater A, B, or C).
+   These examples show the persona's scoring tendencies and comment style.
+   Generated dynamically from server/src/grading/few-shot-sets.ts #}
+{{ fewShotExamples }}
+
+## Proposal to Evaluate
+
+Proposal ID: {{ proposalId }}
+{# Integer identifier for the proposal being evaluated #}
+
+Evaluator ID: {{ evaluatorId }}
+{# Integer ID for the evaluator persona (1 = Rater A, 2 = Rater B, 3 = Rater C) #}
+
+Evaluator Name: {{ evaluatorName }}
+{# Human-readable name of the evaluator persona (e.g., "Rater A") #}
+
+### Action Items
+
+{{ actionItemsText }}
+{# Formatted list of action items with stable IDs and descriptions.
+   Example format:
+   - Action Item 1: [description]
+   - Action Item 2: [description]
+   Each action item has a unique ID that must be referenced in the structured output. #}
+
+Evaluate these action items according to the rubric.
