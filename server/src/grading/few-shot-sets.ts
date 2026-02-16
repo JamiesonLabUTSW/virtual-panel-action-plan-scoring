@@ -69,7 +69,7 @@ const RATER_CONFIGS: RaterConfig[] = [
  * - Dev: __dirname is src/grading/, resources at ../resources/
  * - Prod: __dirname is dist/, resources copied directly to dist/ (tsup publicDir flattens)
  */
-function getResourcePath(relativePath: string): string {
+export function getResourcePath(relativePath: string): string {
   const devPath = path.join(__dirname, `../resources/${relativePath}`);
   const prodPath = path.join(__dirname, `./${relativePath}`);
 
@@ -86,7 +86,7 @@ function getResourcePath(relativePath: string): string {
 /**
  * Loads and validates an action item markdown file.
  */
-function loadActionItem(specialty: string): string {
+export function loadActionItem(specialty: string): string {
   const filePath = getResourcePath(`action_item/${specialty}.md`);
 
   try {
@@ -106,7 +106,7 @@ function loadActionItem(specialty: string): string {
 /**
  * Loads and validates a rating JSON file.
  */
-function loadRating(raterLetter: string, specialty: string): RatingData {
+export function loadRating(raterLetter: string, specialty: string): RatingData {
   const filePath = getResourcePath(`ratings/rater_${raterLetter}/${specialty}.json`);
 
   try {

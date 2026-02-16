@@ -336,4 +336,232 @@ describe("invokeWithStructuredOutput", () => {
       })
     ).rejects.toThrow(StructuredOutputError);
   });
+
+  describe("Edge Cases - Branch Coverage", () => {
+    it("should handle non-completed status with null incomplete_details", async () => {
+      // Branch 6: status !== "completed" && incomplete_details is null
+      mockCreate.mockResolvedValue({
+        status: "failed",
+        incomplete_details: null,
+        output_text: null,
+        output: [],
+        usage: { input_tokens: 0, output_tokens: 0, total_tokens: 0 },
+      });
+
+      const { invokeWithStructuredOutput } = await import("../structured-output");
+
+      try {
+        await invokeWithStructuredOutput<TestType>(TestSchema, {
+          system: "You are a test assistant",
+          user: "Generate a test response",
+        });
+        expect.fail("Should have thrown StructuredOutputError");
+      } catch (error) {
+        expect(error).toBeInstanceOf(StructuredOutputError);
+        const errorInstance = error as StructuredOutputError;
+        expect(errorInstance.attempts[0].error?.message).toContain("failed");
+      }
+    });
+
+    it("should handle undefined status field using nullish coalescing", async () => {
+      // Branch 13: nullish coalescing fallback for undefined status
+      mockCreate.mockResolvedValue({
+        // status is omitted (undefined)
+        output_text: null,
+        output: [],
+        usage: { input_tokens: 0, output_tokens: 0, total_tokens: 0 },
+      });
+
+      const { invokeWithStructuredOutput } = await import("../structured-output");
+
+      try {
+        await invokeWithStructuredOutput<TestType>(TestSchema, {
+          system: "You are a test assistant",
+          user: "Generate a test response",
+        });
+        expect.fail("Should have thrown StructuredOutputError");
+      } catch (error) {
+        expect(error).toBeInstanceOf(StructuredOutputError);
+        const errorInstance = error as StructuredOutputError;
+        expect(errorInstance.attempts[0].error?.message).toContain("unknown");
+      }
+    });
+
+    it("should capture differentiated error messages across all three tiers", async () => {
+      // Tier 1: API rejects with strict schema error
+      mockCreate.mockRejectedValueOnce(new Error("Invalid schema for strict mode"));
+
+      // Tier 2: API returns unparseable JSON
+      mockCreate.mockResolvedValueOnce({
+        status: "completed",
+        output_text: "{ broken json",
+        output: [],
+        usage: { input_tokens: 10, output_tokens: 5, total_tokens: 15 },
+      });
+
+      // Tier 3: Valid JSON but fails Zod validation
+      mockCreate.mockResolvedValueOnce({
+        status: "completed",
+        output_text: JSON.stringify({
+          name: "Test",
+          score: 999, // Invalid - out of range
+          items: ["item1"],
+        }),
+        output: [],
+        usage: { input_tokens: 10, output_tokens: 5, total_tokens: 15 },
+      });
+
+      const { invokeWithStructuredOutput } = await import("../structured-output");
+
+      try {
+        await invokeWithStructuredOutput<TestType>(TestSchema, {
+          system: "You are a test assistant",
+          user: "Generate a test response",
+        });
+        expect.fail("Should have thrown StructuredOutputError");
+      } catch (error) {
+        expect(error).toBeInstanceOf(StructuredOutputError);
+        const errorInstance = error as StructuredOutputError;
+
+        // Verify all three attempts are recorded with DIFFERENT errors
+        expect(errorInstance.attempts).toHaveLength(3);
+
+        // Tier 1 should have strict schema error
+        expect(errorInstance.attempts[0].success).toBe(false);
+        expect(errorInstance.attempts[0].error?.message).toContain(
+          "Invalid schema for strict mode"
+        );
+
+        // Tier 2 should have JSON parse error
+        expect(errorInstance.attempts[1].success).toBe(false);
+        expect(errorInstance.attempts[1].error?.message).toContain("JSON.parse failed");
+
+        // Tier 3 should have Zod validation error
+        expect(errorInstance.attempts[2].success).toBe(false);
+        expect(errorInstance.attempts[2].error?.message).toContain("Zod validation failed");
+
+        // Verify all three errors are different
+        const errorMessages = errorInstance.attempts.map((a) => a.error?.message);
+        expect(new Set(errorMessages).size).toBe(3); // All unique
+      }
+    });
+
+    it("should handle response with missing usage object", async () => {
+      // Response without usage field
+      const testData: TestType = {
+        name: "Test",
+        score: 3,
+        items: ["item1"],
+      };
+
+      mockCreate.mockResolvedValue({
+        id: "resp_test123",
+        object: "response",
+        created_at: Date.now(),
+        model: "gpt-5.1-codex-mini",
+        status: "completed",
+        output_text: JSON.stringify(testData),
+        output: [],
+        // usage is omitted
+      });
+
+      const { invokeWithStructuredOutput } = await import("../structured-output");
+
+      const result = await invokeWithStructuredOutput<TestType>(TestSchema, {
+        system: "You are a test assistant",
+        user: "Generate a test response",
+      });
+
+      // Verify fallback values are used (all 0)
+      expect(result.usage.promptTokens).toBe(0);
+      expect(result.usage.completionTokens).toBe(0);
+      expect(result.usage.totalTokens).toBe(0);
+      expect(result.result).toEqual(testData);
+    });
+
+    it("should handle incomplete_details with content_filter reason", async () => {
+      // incomplete_details.reason: "content_filter"
+      mockCreate.mockResolvedValue({
+        status: "incomplete",
+        incomplete_details: { reason: "content_filter" },
+        output_text: null,
+        output: [],
+        usage: { input_tokens: 10, output_tokens: 0, total_tokens: 10 },
+      });
+
+      const { invokeWithStructuredOutput } = await import("../structured-output");
+
+      try {
+        await invokeWithStructuredOutput<TestType>(TestSchema, {
+          system: "You are a test assistant",
+          user: "Generate a test response",
+        });
+        expect.fail("Should have thrown StructuredOutputError");
+      } catch (error) {
+        expect(error).toBeInstanceOf(StructuredOutputError);
+        const errorInstance = error as StructuredOutputError;
+        expect(errorInstance.attempts[0].error?.message).toContain("incomplete");
+        expect(errorInstance.attempts[0].error?.message).toContain("content_filter");
+      }
+    });
+
+    it("should handle incomplete_details with max_output_tokens reason", async () => {
+      // incomplete_details.reason: "max_output_tokens"
+      mockCreate.mockResolvedValue({
+        status: "incomplete",
+        incomplete_details: { reason: "max_output_tokens" },
+        output_text: null,
+        output: [],
+        usage: { input_tokens: 10, output_tokens: 50, total_tokens: 60 },
+      });
+
+      const { invokeWithStructuredOutput } = await import("../structured-output");
+
+      try {
+        await invokeWithStructuredOutput<TestType>(TestSchema, {
+          system: "You are a test assistant",
+          user: "Generate a test response",
+        });
+        expect.fail("Should have thrown StructuredOutputError");
+      } catch (error) {
+        expect(error).toBeInstanceOf(StructuredOutputError);
+        const errorInstance = error as StructuredOutputError;
+        expect(errorInstance.attempts[0].error?.message).toContain("incomplete");
+        expect(errorInstance.attempts[0].error?.message).toContain("max_output_tokens");
+      }
+    });
+
+    it("should handle response with partial usage fields", async () => {
+      // Response with only some usage fields present
+      const testData: TestType = {
+        name: "Test",
+        score: 2,
+        items: ["item1"],
+      };
+
+      mockCreate.mockResolvedValue({
+        status: "completed",
+        output_text: JSON.stringify(testData),
+        output: [],
+        usage: {
+          input_tokens: 25,
+          // output_tokens is missing
+          // total_tokens is missing
+        },
+      });
+
+      const { invokeWithStructuredOutput } = await import("../structured-output");
+
+      const result = await invokeWithStructuredOutput<TestType>(TestSchema, {
+        system: "You are a test assistant",
+        user: "Generate a test response",
+      });
+
+      // Verify usage fields fallback correctly
+      expect(result.usage.promptTokens).toBe(25);
+      expect(result.usage.completionTokens).toBe(0); // Fallback
+      expect(result.usage.totalTokens).toBe(0); // Fallback
+      expect(result.result).toEqual(testData);
+    });
+  });
 });

@@ -22,7 +22,7 @@ function getRubricPath(): string {
  *
  * @throws If the rubric file is missing or empty
  */
-function loadRubric(): string {
+export function loadRubric(): string {
   const rubricPath = getRubricPath();
 
   let content: string;
